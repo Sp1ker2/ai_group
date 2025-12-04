@@ -1,0 +1,65 @@
+# WireGuard Proxy DaemonSet Configuration
+
+replicaCount: 1  # DaemonSet, игнорируется
+
+image:
+  repository: wireguard/wireguard-tools
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# WireGuard configuration
+wireguard:
+  # Peer configuration (настройка на стороне облака)
+  peerEndpoint: ""  # example: vds-russia.example.com:51820
+  peerPublicKey: ""  # Public key peer'а
+  privateKeySecret: "wg-proxy-private-key"  # K8s Secret name
+  allowedIPs: "0.0.0.0/0"  # Все трафик через туннель
+  interfaceName: "wg0"
+  port: 51820
+
+# Network configuration
+network:
+  # CIDR для WireGuard сети
+  wgCIDR: "10.8.0.0/24"
+  # IP таблицы для маршрутизации
+  routingTable: 200
+
+# Resources
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+# Security context
+securityContext:
+  privileged: true  # Требуется для работы с сетью
+  capabilities:
+    add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+# Node selector (опционально)
+nodeSelector: {}
+
+# Tolerations
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+
+# Affinity
+affinity: {}
+
+# Service account
+serviceAccount:
+  create: true
+  name: "wg-proxy"
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+

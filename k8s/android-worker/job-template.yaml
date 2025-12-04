@@ -1,0 +1,70 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: warmup-account-{{ACCOUNT_ID}}
+  namespace: telegram-farm
+  labels:
+    app: android-worker
+    job-type: warmup
+    account-id: "{{ACCOUNT_ID}}"
+spec:
+  # Не перезапускать автоматически
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600  # Удалить через 1 час после завершения
+  template:
+    metadata:
+      labels:
+        app: android-worker
+        account-id: "{{ACCOUNT_ID}}"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: android-worker
+        image: registry.telegram-farm.local/android-worker:latest
+        imagePullPolicy: Always
+        env:
+        - name: PHONE_NUMBER
+          value: "{{PHONE_NUMBER}}"
+        - name: ACCOUNT_ID
+          value: "{{ACCOUNT_ID}}"
+        - name: SCRIPT_ID
+          value: "{{SCRIPT_ID}}"
+        - name: CONTROL_API_URL
+          value: "http://control-node.telegram-farm.svc.cluster.local:8000"
+        - name: CONTROL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: android-worker-secrets
+              key: api-token
+        - name: SESSION_STORAGE_PATH
+          value: "/data/sessions"
+        securityContext:
+          privileged: true  # Требуется для Waydroid/Anbox
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - NET_ADMIN
+        volumeMounts:
+        - name: tmp
+          mountPath: /data
+        - name: dev
+          mountPath: /dev
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: dev
+        hostPath:
+          path: /dev
+          type: Directory
+      # Node selector для worker nodes
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+

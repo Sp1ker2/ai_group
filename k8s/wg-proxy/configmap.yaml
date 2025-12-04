@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wg-proxy-config
+  namespace: telegram-farm
+  labels:
+    app: wg-proxy
+data:
+  # Пример конфигурации WireGuard
+  # Замените на реальные значения от вашего провайдера
+  wg0.conf: |
+    [Interface]
+    PrivateKey = YOUR_PRIVATE_KEY_HERE
+    Address = 10.8.0.2/24
+    
+    [Peer]
+    PublicKey = PEER_PUBLIC_KEY_HERE
+    Endpoint = vds-russia.example.com:51820
+    AllowedIPs = 0.0.0.0/0
+    PersistentKeepalive = 25
+

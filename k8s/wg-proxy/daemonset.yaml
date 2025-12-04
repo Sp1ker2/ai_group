@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: wg-proxy
+  namespace: telegram-farm
+  labels:
+    app: wg-proxy
+spec:
+  selector:
+    matchLabels:
+      app: wg-proxy
+  template:
+    metadata:
+      labels:
+        app: wg-proxy
+    spec:
+      serviceAccountName: wg-proxy
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: wg-proxy
+        image: linuxserver/wireguard:latest
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - NET_ADMIN
+              - SYS_MODULE
+        env:
+        - name: PUID
+          value: "1000"
+        - name: PGID
+          value: "1000"
+        - name: TZ
+          value: "Europe/Moscow"
+        - name: PEERS
+          value: "1"  # Количество peer'ов
+        volumeMounts:
+        - name: wg-config
+          mountPath: /config
+        - name: modules
+          mountPath: /lib/modules
+          readOnly: true
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+      volumes:
+      - name: wg-config
+        configMap:
+          name: wg-proxy-config
+      - name: modules
+        hostPath:
+          path: /lib/modules
+          type: Directory
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+

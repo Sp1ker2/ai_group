@@ -1,0 +1,72 @@
+# Пример Job для warm-up аккаунта
+# Используйте этот шаблон для создания реальных Jobs
+# Замените {{ACCOUNT_ID}}, {{PHONE_NUMBER}}, {{SCRIPT_ID}} на реальные значения
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: warmup-account-12345
+  namespace: telegram-farm
+  labels:
+    app: android-worker
+    job-type: warmup
+    account-id: "12345"
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: android-worker
+        account-id: "12345"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: android-worker
+        image: registry.telegram-farm.local/android-worker:latest
+        imagePullPolicy: Always
+        env:
+        - name: PHONE_NUMBER
+          value: "+79001234567"
+        - name: ACCOUNT_ID
+          value: "12345"
+        - name: SCRIPT_ID
+          value: "warmup_script_v1"
+        - name: CONTROL_API_URL
+          value: "http://control-node.telegram-farm.svc.cluster.local:8000"
+        - name: CONTROL_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: android-worker-secrets
+              key: api-token
+        - name: SESSION_STORAGE_PATH
+          value: "/data/sessions"
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - NET_ADMIN
+        volumeMounts:
+        - name: tmp
+          mountPath: /data
+        - name: dev
+          mountPath: /dev
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 10Gi
+      - name: dev
+        hostPath:
+          path: /dev
+          type: Directory
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+

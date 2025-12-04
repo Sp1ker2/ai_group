@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "wg-proxy.fullname" . }}
+  namespace: {{ .Values.namespace | default "telegram-farm" }}
+  labels:
+    {{- include "wg-proxy.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "wg-proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "wg-proxy.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "wg-proxy.serviceAccountName" . }}
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+      - name: wg-proxy
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          privileged: {{ .Values.securityContext.privileged }}
+          capabilities:
+            {{- toYaml .Values.securityContext.capabilities | nindent 12 }}
+        env:
+        - name: WG_INTERFACE
+          value: {{ .Values.wireguard.interfaceName }}
+        - name: WG_PEER_ENDPOINT
+          value: {{ .Values.wireguard.peerEndpoint }}
+        - name: WG_PEER_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.wireguard.privateKeySecret }}
+              key: peer-public-key
+        - name: WG_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.wireguard.privateKeySecret }}
+              key: private-key
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          # Генерация конфига WireGuard
+          cat > /etc/wireguard/{{ .Values.wireguard.interfaceName }}.conf <<EOF
+          [Interface]
+          PrivateKey = $WG_PRIVATE_KEY
+          Address = {{ .Values.network.wgCIDR | split "/" | first }}/24
+          
+          [Peer]
+          PublicKey = $WG_PEER_PUBLIC_KEY
+          Endpoint = $WG_PEER_ENDPOINT
+          AllowedIPs = {{ .Values.wireguard.allowedIPs }}
+          PersistentKeepalive = 25
+          EOF
+          
+          # Поднятие интерфейса
+          wg-quick up {{ .Values.wireguard.interfaceName }}
+          
+          # Настройка маршрутизации
+          ip route add default dev {{ .Values.wireguard.interfaceName }} table {{ .Values.network.routingTable }}
+          ip rule add from {{ .Values.network.wgCIDR }} table {{ .Values.network.routingTable }}
+          
+          # Keep alive
+          exec tail -f /dev/null
+        volumeMounts:
+        - name: wg-config
+          mountPath: /etc/wireguard
+        - name: modules
+          mountPath: /lib/modules
+          readOnly: true
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+      volumes:
+      - name: wg-config
+        emptyDir: {}
+      - name: modules
+        hostPath:
+          path: /lib/modules
+          type: Directory
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
