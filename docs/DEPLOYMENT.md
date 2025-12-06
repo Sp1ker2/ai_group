@@ -266,3 +266,6 @@ docker push registry.telegram-farm.local/android-worker:v2
 3. Проверьте события: `kubectl get events -n telegram-farm --sort-by='.lastTimestamp'`
 
 
+
+
+

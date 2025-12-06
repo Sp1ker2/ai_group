@@ -189,3 +189,6 @@ redis.createClient({ host: 'localhost', port: 6379 })
 - Подключение из приложений: `localhost:6379` (TCP)
 
 
+
+
+
