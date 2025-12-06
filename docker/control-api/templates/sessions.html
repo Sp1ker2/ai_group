@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+
+{% block title %}Sessions - Telegram Farm{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">Sessions</h1>
+        <div>
+            <button class="btn btn-primary" onclick="showGetCodeModal()">📱 Получить код</button>
+            <button class="btn btn-secondary" onclick="refreshSessions()">Refresh</button>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2>All Sessions</h2>
+            <span class="badge" id="sessions-total">0</span>
+        </div>
+        <div class="card-body">
+            <div id="sessions-list" class="table-container">
+                <p class="loading">Loading sessions...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для парсинга кода -->
+<div id="parse-code-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🔍 Парсинг кода из Telegram</h2>
+            <button class="modal-close" onclick="closeParseCodeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="parse-code-status"></div>
+            <div id="parse-code-result" style="display: none;">
+                <div class="code-display">
+                    <span id="parsed-code-value"></span>
+                </div>
+                <button class="btn btn-primary btn-copy" onclick="copyCode()">📋 Копировать</button>
+                <p id="code-message" class="code-info"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для получения кода -->
+<div id="get-code-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📱 Получить Telegram Session</h2>
+            <button class="modal-close" onclick="closeGetCodeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="get-code-status"></div>
+            <form id="get-code-form" onsubmit="startGetCode(event)" style="display: block;">
+                <div class="form-group">
+                    <label>Номер телефона</label>
+                    <input type="text" name="phone_number" required placeholder="+79001234567" pattern="^\+[0-9]{10,15}$">
+                    <small>Формат: +79001234567 (с кодом страны)</small>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeGetCodeModal()">Отмена</button>
+                    <button type="button" class="btn btn-secondary" onclick="showDirectCodeInput()">У меня уже есть код</button>
+                    <button type="submit" class="btn btn-primary">Запросить новый код</button>
+                </div>
+            </form>
+            
+            <div id="direct-code-section" style="display: none;">
+                <div class="form-group">
+                    <label>Номер телефона</label>
+                    <input type="text" id="direct-phone" placeholder="+79001234567" readonly>
+                    <small>Введите код, который вы получили в Telegram</small>
+                </div>
+                <div class="form-group">
+                    <label>Код из Telegram</label>
+                    <input type="text" id="direct-code" placeholder="12345" maxlength="10">
+                    <small>Код, который вы уже получили в Telegram</small>
+                </div>
+                <div class="form-group" id="direct-password-section" style="display: none;">
+                    <label>Пароль 2FA (если установлен)</label>
+                    <input type="password" id="direct-password" placeholder="Пароль">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="cancelDirectCode()">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="submitDirectCode()">Подтвердить код</button>
+                </div>
+            </div>
+            
+            <div id="code-input-section" style="display: none;">
+                <div class="form-group">
+                    <label>Код из Telegram</label>
+                    <input type="text" id="telegram-code" placeholder="12345" maxlength="10">
+                    <small>Проверьте Telegram - код должен прийти в течение минуты</small>
+                </div>
+                <div class="form-group" id="password-section" style="display: none;">
+                    <label>Пароль 2FA (если установлен)</label>
+                    <input type="password" id="telegram-password" placeholder="Пароль">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="cancelGetCode()">Отмена</button>
+                    <button type="button" class="btn btn-primary" onclick="submitCode()">Подтвердить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadSessions() {
+        try {
+            const res = await fetch('/api/v1/sessions');
+            const data = await res.json();
+            
+            document.getElementById('sessions-total').textContent = data.total;
+            displaySessions(data.sessions);
+        } catch (error) {
+            console.error('Error loading sessions:', error);
+            document.getElementById('sessions-list').innerHTML = 
+                '<p class="error">Error loading sessions</p>';
+        }
+    }
+    
+    function displaySessions(sessions) {
+        const container = document.getElementById('sessions-list');
+        
+        if (sessions.length === 0) {
+            container.innerHTML = '<p class="empty">No sessions found</p>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Phone</th>
+                        <th>Filename</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${sessions.map(s => `
+                        <tr>
+                            <td>${s.phone}</td>
+                            <td><code>${s.filename}</code></td>
+                            <td><span class="badge badge-success">Active</span></td>
+                            <td>${s.created_at || 'Unknown'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="parseCodeFromSession('${s.phone}')" title="Парсить код из Telegram">🔍 Парсить код</button>
+                                ${s.twoFA ? `<button class="btn btn-sm btn-2fa" onclick="copy2FA('${s.twoFA}')" title="Копировать 2FA пароль">🔐 2FA</button>` : ''}
+                                <button class="btn btn-sm btn-secondary" onclick="getCodeForPhone('${s.phone}')" title="Получить новый код">📱 Новый</button>
+                                <button class="btn btn-sm" onclick="testSession('${s.phone}')">Test</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+    
+    function refreshSessions() {
+        document.getElementById('sessions-list').innerHTML = '<p class="loading">Refreshing...</p>';
+        loadSessions();
+    }
+    
+    function testSession(phone) {
+        alert(`Testing session for ${phone}`);
+        // Здесь можно добавить логику тестирования
+    }
+    
+    let currentGetCodeRequest = null;
+    
+    function showGetCodeModal(phoneNumber = '') {
+        document.getElementById('get-code-modal').style.display = 'block';
+        document.getElementById('get-code-form').style.display = 'block';
+        document.getElementById('code-input-section').style.display = 'none';
+        document.getElementById('direct-code-section').style.display = 'none';
+        document.getElementById('get-code-status').innerHTML = '';
+        
+        // Если передан номер, подставить его
+        if (phoneNumber) {
+            document.querySelector('input[name="phone_number"]').value = phoneNumber;
+            document.getElementById('direct-phone').value = phoneNumber;
+        }
+    }
+    
+    function showDirectCodeInput() {
+        const phoneInput = document.querySelector('input[name="phone_number"]');
+        const phone = phoneInput.value;
+        
+        if (!phone) {
+            alert('Сначала введите номер телефона');
+            return;
+        }
+        
+        document.getElementById('get-code-form').style.display = 'none';
+        document.getElementById('direct-code-section').style.display = 'block';
+        document.getElementById('direct-phone').value = phone;
+        document.getElementById('direct-code').value = '';
+        document.getElementById('direct-code').focus();
+        document.getElementById('get-code-status').innerHTML = 
+            '<div class="badge badge-info">Введите код, который вы уже получили в Telegram</div>';
+    }
+    
+    function cancelDirectCode() {
+        document.getElementById('direct-code-section').style.display = 'none';
+        document.getElementById('get-code-form').style.display = 'block';
+        document.getElementById('get-code-status').innerHTML = '';
+    }
+    
+    async function submitDirectCode() {
+        const phone = document.getElementById('direct-phone').value;
+        const code = document.getElementById('direct-code').value;
+        const password = document.getElementById('direct-password').value;
+        
+        if (!phone || !code) {
+            alert('Введите номер телефона и код');
+            return;
+        }
+        
+        document.getElementById('get-code-status').innerHTML = 
+            '<div class="loading">Проверка кода...</div>';
+        
+        try {
+            const res = await fetch('/api/v1/sessions/verify-code-direct', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    phone_number: phone,
+                    code: code,
+                    password: password || null
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'success') {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-success">Session получен! Файл: ' + data.filename + '</div>';
+                setTimeout(() => {
+                    closeGetCodeModal();
+                    refreshSessions();
+                }, 2000);
+            } else if (data.status === 'need_password') {
+                document.getElementById('direct-password-section').style.display = 'block';
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-warning">Требуется пароль 2FA</div>';
+            } else {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="error">Ошибка: ' + (data.detail || 'Неверный код. Возможно нужен новый код через систему.') + '</div>';
+            }
+        } catch (error) {
+            document.getElementById('get-code-status').innerHTML = 
+                '<div class="error">Ошибка: ' + error.message + '</div>';
+        }
+    }
+    
+    function getCodeForPhone(phone) {
+        showGetCodeModal(phone);
+    }
+    
+    function closeGetCodeModal() {
+        document.getElementById('get-code-modal').style.display = 'none';
+        if (currentGetCodeRequest) {
+            // Отменить запрос если есть
+        }
+    }
+    
+    async function startGetCode(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const phone = formData.get('phone_number');
+        
+        document.getElementById('get-code-status').innerHTML = 
+            '<div class="loading">Запрос кода в Telegram для ' + phone + '...<br>Код будет отправлен в Telegram на этот номер</div>';
+        
+        try {
+            const res = await fetch('/api/v1/sessions/get-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone_number: phone})
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'code_sent') {
+                document.getElementById('get-code-form').style.display = 'none';
+                document.getElementById('code-input-section').style.display = 'block';
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-success">Код отправлен на ' + phone + '!<br>Проверьте Telegram - код должен прийти в течение минуты. Введите код ниже.</div>';
+                currentGetCodeRequest = {phone: phone, phone_code_hash: data.phone_code_hash};
+                // Очистить поле кода
+                document.getElementById('telegram-code').value = '';
+                document.getElementById('telegram-code').focus();
+                
+                // Начать проверку кода автоматически (каждые 2 секунды)
+                startAutoCodeCheck(phone);
+            } else if (data.status === 'session_exists' || data.status === 'already_authorized') {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-warning">Аккаунт уже авторизован. Session найден: ' + (data.session_file || 'существующий session') + '</div>';
+                setTimeout(() => {
+                    closeGetCodeModal();
+                    refreshSessions();
+                }, 2000);
+            } else {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="error">Ошибка: ' + (data.detail || data.message || 'Неизвестная ошибка') + '</div>';
+            }
+        } catch (error) {
+            document.getElementById('get-code-status').innerHTML = 
+                '<div class="error">❌ Ошибка: ' + error.message + '</div>';
+        }
+    }
+    
+    async function submitCode() {
+        const code = document.getElementById('telegram-code').value;
+        const password = document.getElementById('telegram-password').value;
+        
+        if (!code) {
+            alert('Введите код из Telegram');
+            return;
+        }
+        
+        document.getElementById('get-code-status').innerHTML = 
+            '<div class="loading">⏳ Проверка кода...</div>';
+        
+        try {
+            const res = await fetch('/api/v1/sessions/verify-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    phone_number: currentGetCodeRequest.phone,
+                    phone_code_hash: currentGetCodeRequest.phone_code_hash,
+                    code: code,
+                    password: password || null
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'success') {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-success">✅ Session получен! Файл: ' + data.filename + '</div>';
+                setTimeout(() => {
+                    closeGetCodeModal();
+                    refreshSessions();
+                }, 2000);
+            } else if (data.need_password) {
+                document.getElementById('password-section').style.display = 'block';
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-warning">🔒 Требуется пароль 2FA</div>';
+            } else {
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="error">❌ Ошибка: ' + (data.detail || 'Неверный код') + '</div>';
+            }
+        } catch (error) {
+            document.getElementById('get-code-status').innerHTML = 
+                '<div class="error">❌ Ошибка: ' + error.message + '</div>';
+        }
+    }
+    
+    function cancelGetCode() {
+        closeGetCodeModal();
+        currentGetCodeRequest = null;
+        if (autoCodeCheckInterval) {
+            clearInterval(autoCodeCheckInterval);
+            autoCodeCheckInterval = null;
+        }
+    }
+    
+    let autoCodeCheckInterval = null;
+    
+    async function startAutoCodeCheck(phone) {
+        // Проверять код каждые 2 секунды и автоматически использовать
+        let attempts = 0;
+        const maxAttempts = 35; // 70 секунд максимум (код может прийти с задержкой)
+        
+        autoCodeCheckInterval = setInterval(async () => {
+            attempts++;
+            
+            if (attempts > maxAttempts) {
+                clearInterval(autoCodeCheckInterval);
+                autoCodeCheckInterval = null;
+                document.getElementById('get-code-status').innerHTML = 
+                    '<div class="badge badge-warning">Код не получен автоматически. Введите код вручную.</div>';
+                return;
+            }
+            
+            try {
+                // Проверить получен ли код автоматически
+                const res = await fetch(`/api/v1/sessions/check-code/${encodeURIComponent(phone)}`);
+                const data = await res.json();
+                
+                if (data.status === 'code_found' && data.code) {
+                    // Автоматически подставить код
+                    document.getElementById('telegram-code').value = data.code;
+                    document.getElementById('get-code-status').innerHTML = 
+                        '<div class="badge badge-success">Код получен автоматически! Проверка...</div>';
+                    clearInterval(autoCodeCheckInterval);
+                    autoCodeCheckInterval = null;
+                    // Автоматически отправить
+                    setTimeout(() => submitCode(), 500);
+                } else if (data.status === 'session_created') {
+                    // Session уже создан автоматически
+                    document.getElementById('get-code-status').innerHTML = 
+                        '<div class="badge badge-success">Session создан автоматически! Файл: ' + (data.filename || 'создан') + '</div>';
+                    clearInterval(autoCodeCheckInterval);
+                    autoCodeCheckInterval = null;
+                    setTimeout(() => {
+                        closeGetCodeModal();
+                        refreshSessions();
+                    }, 2000);
+                }
+            } catch (error) {
+                // Игнорировать ошибки проверки
+            }
+        }, 2000);
+    }
+    
+    // Закрыть модалку при клике вне её
+    window.onclick = function(event) {
+        const modal = document.getElementById('get-code-modal');
+        if (event.target == modal) {
+            closeGetCodeModal();
+        }
+    }
+    
+    // ===== Парсинг кода из Telegram =====
+    
+    function showParseCodeModal(phone) {
+        document.getElementById('parse-code-modal').style.display = 'block';
+        document.getElementById('parse-code-status').innerHTML = '<div class="loading">Парсинг сообщений из Telegram...</div>';
+        document.getElementById('parse-code-result').style.display = 'none';
+    }
+    
+    function closeParseCodeModal() {
+        document.getElementById('parse-code-modal').style.display = 'none';
+    }
+    
+    async function parseCodeFromSession(phone) {
+        showParseCodeModal(phone);
+        
+        try {
+            const res = await fetch('/api/v1/sessions/parse-code', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({phone_number: phone})
+            });
+            
+            const data = await res.json();
+            console.log('Parse response:', data);
+            
+            if (res.ok && data.status === 'found') {
+                document.getElementById('parse-code-status').innerHTML = '';
+                document.getElementById('parse-code-result').style.display = 'block';
+                document.getElementById('parsed-code-value').textContent = data.code;
+                
+                // Показать все найденные коды
+                let codesHtml = '<p class="code-info">' + data.message + '</p>';
+                if (data.all_codes && data.all_codes.length > 1) {
+                    codesHtml += '<p style="margin-top:10px"><b>Все коды:</b></p><ul style="text-align:left">';
+                    data.all_codes.forEach(c => {
+                        codesHtml += '<li><b>' + c.code + '</b> (' + (c.hours_ago || 0) + ' ч. назад)</li>';
+                    });
+                    codesHtml += '</ul>';
+                }
+                document.getElementById('code-message').innerHTML = codesHtml;
+            } else if (data.status === 'not_found') {
+                // Показать последние сообщения для отладки
+                let html = '<div class="badge badge-warning">Код не найден</div>';
+                if (data.all_messages && data.all_messages.length > 0) {
+                    html += '<p style="margin-top:15px"><b>Последние сообщения от Telegram:</b></p>';
+                    html += '<div style="text-align:left; max-height:200px; overflow-y:auto; font-size:12px; background:#f5f5f5; padding:10px; border-radius:5px">';
+                    data.all_messages.forEach((m, i) => {
+                        html += '<div style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid #ddd">';
+                        html += '<small style="color:#888">' + (m.seconds_ago ? Math.round(m.seconds_ago/60) + ' мин. назад' : '') + '</small><br>';
+                        html += m.text;
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                }
+                document.getElementById('parse-code-status').innerHTML = html;
+                document.getElementById('parse-code-result').style.display = 'none';
+            } else {
+                document.getElementById('parse-code-status').innerHTML = 
+                    '<div class="error">Ошибка: ' + (data.detail || 'Неизвестная ошибка') + '</div>';
+            }
+        } catch (error) {
+            document.getElementById('parse-code-status').innerHTML = 
+                '<div class="error">Ошибка: ' + error.message + '</div>';
+        }
+    }
+    
+    function copyCode() {
+        const code = document.getElementById('parsed-code-value').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.querySelector('.btn-copy');
+            btn.textContent = '✅ Скопировано!';
+            setTimeout(() => {
+                btn.textContent = '📋 Копировать';
+            }, 2000);
+        }).catch(err => {
+            alert('Не удалось скопировать: ' + err);
+        });
+    }
+    
+    function copy2FA(password) {
+        navigator.clipboard.writeText(password).then(() => {
+            // Показать уведомление
+            const notification = document.createElement('div');
+            notification.className = 'copy-notification';
+            notification.textContent = '✅ 2FA скопирован: ' + password;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                notification.remove();
+            }, 2000);
+        }).catch(err => {
+            alert('Не удалось скопировать: ' + err);
+        });
+    }
+    
+    // Закрыть модалку парсинга при клике вне её
+    window.addEventListener('click', function(event) {
+        const parseModal = document.getElementById('parse-code-modal');
+        if (event.target == parseModal) {
+            closeParseCodeModal();
+        }
+    });
+    
+    // Загрузить при старте
+    loadSessions();
+</script>
+{% endblock %}
+

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Главная - Telegram Farm{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-content">
+        <h1 class="hero-title">Telegram Farm Control</h1>
+        <p class="hero-subtitle">Управление массовыми Telegram аккаунтами</p>
+        <div class="hero-buttons">
+            <a href="/dashboard" class="btn btn-primary">Dashboard</a>
+            <a href="/sessions" class="btn btn-secondary">Sessions</a>
+        </div>
+    </div>
+</div>
+
+<div class="features">
+    <div class="container">
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📱</div>
+                <h3>Управление аккаунтами</h3>
+                <p>Работа с тысячами Telegram аккаунтов одновременно</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💬</div>
+                <h3>Групповое общение</h3>
+                <p>Автоматическое создание групп и общение между аккаунтами</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Warm-up задачи</h3>
+                <p>Автоматический прогрев аккаунтов</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Мониторинг</h3>
+                <p>Отслеживание статуса всех операций</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+

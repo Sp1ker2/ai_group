@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs - Telegram Farm{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">Jobs</h1>
+        <button class="btn btn-primary" onclick="showCreateJobModal()">Create Job</button>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2>Active Jobs</h2>
+        </div>
+        <div class="card-body">
+            <div id="jobs-list" class="table-container">
+                <p class="empty">No active jobs</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для создания задачи -->
+<div id="create-job-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create Warm-up Job</h2>
+            <button class="modal-close" onclick="closeJobModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="create-job-form" onsubmit="createJob(event)">
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" name="phone_number" required placeholder="+79001234567">
+                </div>
+                <div class="form-group">
+                    <label>Account ID</label>
+                    <input type="text" name="account_id" required placeholder="account_123">
+                </div>
+                <div class="form-group">
+                    <label>Script ID</label>
+                    <input type="text" name="script_id" value="warmup_script_v1">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="enable_group_chat"> Enable Group Chat
+                    </label>
+                </div>
+                <div class="form-group" id="group-id-field" style="display: none;">
+                    <label>Group ID</label>
+                    <input type="text" name="group_id" placeholder="123456789">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeJobModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Job</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function showCreateJobModal() {
+        document.getElementById('create-job-modal').style.display = 'block';
+    }
+    
+    function closeJobModal() {
+        document.getElementById('create-job-modal').style.display = 'none';
+    }
+    
+    // Показать/скрыть поле Group ID
+    document.querySelector('input[name="enable_group_chat"]').addEventListener('change', function(e) {
+        document.getElementById('group-id-field').style.display = e.target.checked ? 'block' : 'none';
+    });
+    
+    async function createJob(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        const data = {
+            phone_number: formData.get('phone_number'),
+            account_id: formData.get('account_id'),
+            script_id: formData.get('script_id'),
+            enable_group_chat: formData.get('enable_group_chat') === 'on',
+            group_id: formData.get('group_id') || null
+        };
+        
+        try {
+            const res = await fetch('/api/v1/jobs/create', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                const result = await res.json();
+                alert('Job created successfully! ID: ' + result.job_id);
+                closeJobModal();
+                form.reset();
+            } else {
+                const error = await res.json();
+                alert('Error: ' + error.detail);
+            }
+        } catch (error) {
+            alert('Error creating job: ' + error.message);
+        }
+    }
+    
+    // Закрыть модалку при клике вне её
+    window.onclick = function(event) {
+        const modal = document.getElementById('create-job-modal');
+        if (event.target == modal) {
+            closeJobModal();
+        }
+    }
+</script>
+{% endblock %}
+
+
+

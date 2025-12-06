@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Telegram Farm{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="page-title">Dashboard</h1>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📱</div>
+            <div class="stat-info">
+                <h3 id="sessions-count">-</h3>
+                <p>Sessions</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">💬</div>
+            <div class="stat-info">
+                <h3 id="groups-count">-</h3>
+                <p>Groups</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⚡</div>
+            <div class="stat-info">
+                <h3 id="jobs-count">-</h3>
+                <p>Active Jobs</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3 id="status-text">-</h3>
+                <p>System Status</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-sections">
+        <div class="section-card">
+            <h2>Recent Sessions</h2>
+            <div id="recent-sessions" class="list-container">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h2>Recent Groups</h2>
+            <div id="recent-groups" class="list-container">
+                <p class="loading">Loading...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    async function loadDashboard() {
+        try {
+            // Загрузить статус
+            const statusRes = await fetch('/api/v1/status');
+            const status = await statusRes.json();
+            
+            document.getElementById('sessions-count').textContent = status.sessions_count || 0;
+            document.getElementById('groups-count').textContent = status.groups_count || 0;
+            document.getElementById('status-text').textContent = status.api === 'running' ? 'Running' : 'Stopped';
+            
+            // Загрузить сессии
+            const sessionsRes = await fetch('/api/v1/sessions');
+            const sessionsData = await sessionsRes.json();
+            displaySessions(sessionsData.sessions.slice(0, 5));
+            
+            // Загрузить группы
+            const groupsRes = await fetch('/api/v1/groups');
+            const groupsData = await groupsRes.json();
+            displayGroups(groupsData.groups.slice(0, 5));
+            
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+        }
+    }
+    
+    function displaySessions(sessions) {
+        const container = document.getElementById('recent-sessions');
+        if (sessions.length === 0) {
+            container.innerHTML = '<p class="empty">No sessions found</p>';
+            return;
+        }
+        
+        container.innerHTML = sessions.map(s => `
+            <div class="list-item">
+                <span class="item-icon">📱</span>
+                <span class="item-text">${s.phone}</span>
+                <span class="item-badge">Active</span>
+            </div>
+        `).join('');
+    }
+    
+    function displayGroups(groups) {
+        const container = document.getElementById('recent-groups');
+        if (groups.length === 0) {
+            container.innerHTML = '<p class="empty">No groups found</p>';
+            return;
+        }
+        
+        container.innerHTML = groups.map(g => `
+            <div class="list-item">
+                <span class="item-icon">💬</span>
+                <span class="item-text">${g.group_title || 'Group'}</span>
+                <span class="item-badge">${g.members_added || 0} members</span>
+            </div>
+        `).join('');
+    }
+    
+    // Загрузить при старте
+    loadDashboard();
+    
+    // Обновлять каждые 30 секунд
+    setInterval(loadDashboard, 30000);
+</script>
+{% endblock %}
+
+
+
