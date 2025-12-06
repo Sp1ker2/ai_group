@@ -168,3 +168,6 @@ python scripts/batch-upload-sessions.py
 4. ✅ Можно тестировать без S3
 5. ✅ Worker автоматически использует локальные сессии
 
+
+
+

@@ -133,3 +133,6 @@ Invoke-WebRequest -Uri http://localhost:8000/api/v1/status
 - Развертывания в Kubernetes
 
 
+
+
+

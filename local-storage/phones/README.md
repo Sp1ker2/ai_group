@@ -21,3 +21,6 @@ python scripts/batch-get-sessions.py local-storage/phones/accounts.txt
 # Сессии будут сохранены в local-storage/sessions/
 ```
 
+
+
+
