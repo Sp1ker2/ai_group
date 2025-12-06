@@ -11,24 +11,59 @@ from telethon import TelegramClient
 from telethon.sessions import StringSession
 import asyncio
 
-def load_session_local(account_id: str):
-    """Загрузить session из локального файла"""
+def load_session_local(phone_number: str = None, account_id: str = None):
+    """Загрузить session из локального файла по номеру или account_id"""
     sessions_dir = Path('local-storage/sessions')
-    session_file = sessions_dir / f"session_{account_id}.json"
     
-    if not session_file.exists():
-        return None
+    # Приоритет: по номеру телефона
+    if phone_number:
+        phone_filename = phone_number.replace('+', '').replace('-', '').replace(' ', '')
+        
+        # Сначала попробовать .json файл
+        json_file = sessions_dir / f"{phone_filename}.json"
+        if json_file.exists():
+            with open(json_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        
+        # Потом .session файл (если есть JSON рядом, загрузим его для метаданных)
+        session_file = sessions_dir / f"{phone_filename}.session"
+        if session_file.exists():
+            # Если есть .session, но нет .json, создадим базовую структуру
+            return {
+                "phone_number": phone_number,
+                "session_file": str(session_file),
+                "has_session_file": True
+            }
     
-    with open(session_file, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    # Fallback: по account_id
+    if account_id:
+        json_file = sessions_dir / f"session_{account_id}.json"
+        if json_file.exists():
+            with open(json_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    
+    # Попробовать найти по всем JSON файлам
+    for json_file in sessions_dir.glob('*.json'):
+        try:
+            with open(json_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if account_id and str(data.get('account_id')) == str(account_id):
+                    return data
+                if phone_number and data.get('phone_number') == phone_number:
+                    return data
+        except:
+            continue
+    
+    return None
 
 
-async def test_session_local(account_id: str):
+async def test_session_local(phone_number: str = None, account_id: str = None):
     """Протестировать session локально"""
-    session_data = load_session_local(account_id)
+    session_data = load_session_local(phone_number=phone_number, account_id=account_id)
     
     if not session_data:
-        print(f"❌ Session для account_id {account_id} не найден")
+        identifier = phone_number or f"account_id {account_id}"
+        print(f"❌ Session для {identifier} не найден")
         return False
     
     try:
@@ -62,7 +97,7 @@ def list_all_sessions():
         print("❌ Папка local-storage/sessions не найдена")
         return []
     
-    sessions = list(sessions_dir.glob('session_*.json'))
+    sessions = list(sessions_dir.glob('*.json'))
     
     if not sessions:
         print("📭 Нет сохраненных сессий")
@@ -97,17 +132,24 @@ if __name__ == '__main__':
         if sys.argv[1] == 'list':
             list_all_sessions()
         elif sys.argv[1] == 'test' and len(sys.argv) > 2:
-            account_id = sys.argv[2]
-            asyncio.run(test_session_local(account_id))
+            identifier = sys.argv[2]
+            # Определить это номер или account_id
+            if identifier.startswith('+') or identifier.replace('+', '').isdigit():
+                asyncio.run(test_session_local(phone_number=identifier))
+            else:
+                asyncio.run(test_session_local(account_id=identifier))
         else:
             print("Использование:")
-            print("  python load-sessions-local.py list          # Показать все сессии")
-            print("  python load-sessions-local.py test <id>     # Протестировать session")
+            print("  python load-sessions-local.py list                    # Показать все сессии")
+            print("  python load-sessions-local.py test <phone>             # Протестировать по номеру")
+            print("  python load-sessions-local.py test <account_id>        # Протестировать по ID")
     else:
         print("Использование:")
-        print("  python load-sessions-local.py list          # Показать все сессии")
-        print("  python load-sessions-local.py test <id>     # Протестировать session")
+        print("  python load-sessions-local.py list                    # Показать все сессии")
+        print("  python load-sessions-local.py test <phone>             # Протестировать по номеру")
+        print("  python load-sessions-local.py test <account_id>        # Протестировать по ID")
         print("\nПример:")
         print("  python load-sessions-local.py list")
+        print("  python load-sessions-local.py test +79001234567")
         print("  python load-sessions-local.py test 12345")
 

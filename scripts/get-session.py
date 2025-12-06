@@ -7,6 +7,7 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 from telethon import TelegramClient
 from telethon.sessions import StringSession
 
@@ -61,19 +62,30 @@ async def get_session():
             "api_hash": api_hash
         }
         
-        # Сохранить в local-storage/sessions/
+        # Сохранить в local-storage/sessions/ по номеру телефона
         sessions_dir = Path('local-storage/sessions')
         sessions_dir.mkdir(parents=True, exist_ok=True)
         
-        filename = sessions_dir / f"session_{me.id}.json"
-        with open(filename, 'w', encoding='utf-8') as f:
+        # Имя файла по номеру телефона (убираем + и заменяем на _)
+        phone_filename = phone_number.replace('+', '').replace('-', '').replace(' ', '')
+        
+        # 1. Сохранить .session файл (стандартный формат Telethon)
+        session_file = sessions_dir / f"{phone_filename}.session"
+        client.session.save(str(session_file))
+        
+        # 2. Сохранить .json файл (с метаданными)
+        json_file = sessions_dir / f"{phone_filename}.json"
+        with open(json_file, 'w', encoding='utf-8') as f:
             json.dump(session_data, f, indent=2, ensure_ascii=False)
         
         print(f"\n✅ Session успешно получен!")
         print(f"   Account ID: {me.id}")
+        print(f"   Phone: {phone_number}")
         print(f"   Username: @{me.username}" if me.username else "   Username: (нет)")
         print(f"   Имя: {me.first_name} {me.last_name or ''}")
-        print(f"\n📁 Session сохранен в: {filename}")
+        print(f"\n📁 Файлы сохранены:")
+        print(f"   • {session_file} (.session)")
+        print(f"   • {json_file} (.json)")
         print(f"\n📋 Session string (для копирования):")
         print(f"   {session_string[:50]}...")
         

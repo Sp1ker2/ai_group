@@ -58,7 +58,14 @@ def main():
             client.make_bucket(s3_bucket)
         
         # Найти все session файлы (локально и в local-storage)
-        session_files = glob("session_*.json") + glob("local-storage/sessions/session_*.json")
+        # Поддержка обоих форматов: по номеру и по account_id
+        session_files = (
+            glob("session_*.json") + 
+            glob("local-storage/sessions/session_*.json") +
+            glob("local-storage/sessions/*.json")  # Все JSON файлы (включая по номерам)
+        )
+        # Убрать дубликаты
+        session_files = list(set(session_files))
         
         if not session_files:
             print("❌ Не найдено session файлов (session_*.json)")
