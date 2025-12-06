@@ -2517,7 +2517,7 @@ def add_log(message: str, log_type: str = "info"):
 
 
 async def run_auto_chat_loop(groups):
-    """Фоновый цикл автоматического чата"""
+    """Фоновый цикл автоматического чата - ЖИВОЕ ОБЩЕНИЕ!"""
     global progress_status
     from telethon import TelegramClient
     import random
@@ -2525,45 +2525,50 @@ async def run_auto_chat_loop(groups):
     add_log("=== АВТО-ЧАТ ЗАПУЩЕН ===", "success")
     add_log(f"Активных групп: {len(groups)}", "info")
     
-    # Заготовленные сообщения - как реальные люди пишут!
-    MESSAGES = {
-        "default": [
-            "прив всем! чо как дела у вас, давно тут не появлялся",
-            "здаров народ)) ну что тут интересного пропустил расказывайте",
-            "о привте, как выходные прошли у всех?",
-            "хай! чем занимаетесь вообще, я вот только проснулся",
-            "ну что тут нового, вижу общаетесь без меня))",
-            "всем прив, погода сегодня вообще огонь кстати",
-            "о зашел посмотреть что тут, ну и как обычно движуха)",
-            "да ладно? серьезно? вот это новости",
-            "блин точно! я тоже про это думал недавно",
-            "а я вот чо скажу, тут не все так просто на самом деле",
-        ],
-        "games": [
-            "народ кто во что играет щас? я вот завис в одной игре прям не могу оторватся",
-            "посоветуйте чо нибудь поиграть, а то надоело все уже",
-            "онлайн или сингл играете? я вот больше сингл люблю честно",
-            "топ игра этого года для вас какая? мне вот зашло...",
-            "стим или консоль кстати? у меня обе есть но стим чаще",
-            "ждете чо нибудь новое из игр? я вот жду прям очень",
-        ],
-        "music": [
-            "чо слушаете вообще? мне вот недавно один альбом скинули прям огонь",
-            "на концерты ходите вообще? я вот давно не был хочу уже",
-            "какой жанр больше нравится? я вот всеядный почти))",
-            "новый альбом слышали кстати? ну который недавно вышел",
-            "топ песня для вас какая щас? у меня на репите одна прям",
-        ],
-        "movies": [
-            "чо посмотреть посоветуете? вечер свободный хочу кино",
-            "сериалы смотрите вообще? я вот один начал прям затянуло",
-            "были в кино недавно? чо там идет норм вообще?",
-            "какой жанр любите больше? я вот триллеры обожаю",
-            "топ фильм для вас какой? ну прям самый самый",
-        ],
-    }
+    # Новые темы для вброса когда разговор затухает
+    NEW_TOPICS = [
+        "кстати а чо думаете про...",
+        "о слушайте вспомнил прикол один",
+        "народ а вот вопрос есть",
+        "бля совсем забыл сказать",
+        "кста кто шарит в этом подскажите",
+        "ребзя а вы знали что...",
+        "ой пока молчал вспомнил историю",
+        "лан давайте о другом поговорим",
+        "а вот интересно ваше мнение",
+        "слыш а ты помнишь как мы...",
+    ]
+    
+    # Короткие реакции (быстрые ответы)
+    SHORT_REPLIES = [
+        "да", "не", "ага", "ну", "хз", "пон", "ясн", "норм", "ок", "лан",
+        "ваще", "прям", "точн", "база", "факт", "плюс", "жиза", "кек",
+        "++", ")", "))", ")))", "хах", "ахах", "лол", "😂", "🔥", "👍",
+    ]
+    
+    # Средние сообщения
+    MEDIUM_MSGS = [
+        "да не ну это понятно конечно",
+        "согласен полностью с тобой тут",
+        "хм интересная мысль кстати да",
+        "ну такое себе если честно",
+        "а вот тут не соглашусь)",
+        "прикольно звучит надо попробовать",
+        "я бы тоже так сделал наверн",
+        "ну да логично получается в итоге",
+    ]
+    
+    # Длинные сообщения (развёрнутые мысли)
+    LONG_MSGS = [
+        "слушай ну вот я тут подумал и пришел к выводу что на самом деле все не так просто как кажется на первый взгляд, тут много нюансов которые надо учитывать",
+        "да бля я вот сам через это проходил и скажу честно - это был тот ещё опыт, многому научился но не хотел бы повторять если честно",
+        "короче смотри тут такая тема - с одной стороны ты прав конечно, но с другой есть моменты о которых ты не подумал видимо",
+        "ну вот смотри я тебе сейчас расскажу как было у меня и ты сам поймешь почему я так думаю, это прям показательная история",
+    ]
     
     msg_count = 0
+    topic_energy = 10  # Энергия темы (падает со временем, при 0 - новая тема)
+    last_sender = None  # Чтобы не один человек спамил
     
     while any(auto_chat_active.values()):
         for i, group in enumerate(groups):
@@ -2586,218 +2591,180 @@ async def run_auto_chat_loop(groups):
                     add_log(f"[{group['title']}] Нет TG группы - пропуск", "warning")
                     continue
                 
-                # Все участники
                 all_members = [group["admin"]] + group["members"]
                 
-                # Выбрать случайного отправителя
-                sender = random.choice(all_members)
-                phone = sender["phone"]
-                session_file = SESSIONS_DIR / phone / f"{phone}.session"
+                # === ЖИВОЕ ОБЩЕНИЕ: 5-15 сообщений за раунд ===
+                messages_this_round = random.randint(5, 15)
+                add_log(f"[{group['title']}] === РАУНД: {messages_this_round} сообщений ===", "info")
                 
-                if not session_file.exists():
-                    add_log(f"Session не найден: {phone}", "warning")
-                    continue
-                
-                app_id = sender.get("app_id") or 2040
-                app_hash = sender.get("app_hash") or "b18441a1ff607e10a989891a5462e627"
-                sender_name = sender.get("first_name", phone[-4:])
-                
-                # Попробовать AI (Groq бесплатный!), иначе заготовки
-                topic = group.get("assigned_topic", {})
-                message = None
-                
-                try:
-                    from openai_chat import get_chat_manager, PERSONALITIES
-                    chat_manager = get_chat_manager(AI_API_KEY, AI_PROVIDER)
-                    personality = random.choice(PERSONALITIES)
-                    context = chat_manager.get_context(group_id)
+                for msg_num in range(messages_this_round):
+                    if not auto_chat_active.get(group_id, False):
+                        break
                     
-                    # Генерировать сообщение с проверкой на дубликаты
-                    max_attempts = 3
-                    for attempt in range(max_attempts):
-                        message = await chat_manager.generate_message(
-                            group_id=group_id,
-                            sender_name=sender_name,
-                            sender_personality=personality,
-                            topic=topic,
-                            context=context,
-                            is_first_message=len(context) == 0
-                        )
-                        
-                        # Проверка на дубликат (похожее сообщение в последних 10)
-                        is_duplicate = False
-                        msg_lower = message.lower().strip()[:30]  # Первые 30 символов
-                        for ctx_msg in context[-10:]:
-                            if msg_lower in ctx_msg.lower():
-                                is_duplicate = True
-                                break
-                        
-                        if not is_duplicate:
-                            break
-                        else:
-                            add_log(f"[{group['title']}] Дубликат, генерирую заново...", "warning")
+                    # Выбрать отправителя (не того же что и прошлый раз!)
+                    available_senders = [m for m in all_members if m.get("phone") != last_sender]
+                    if not available_senders:
+                        available_senders = all_members
+                    sender = random.choice(available_senders)
+                    last_sender = sender.get("phone")
                     
-                    add_log(f"[{group['title']}] AI: {message[:50]}...", "message")
-                except Exception as e:
-                    add_log(f"AI недоступен: {str(e)[:30]}", "warning")
-                    category = topic.get("category", "default")
-                    messages_list = MESSAGES.get(category, MESSAGES["default"])
-                    message = random.choice(messages_list)
-                    add_log(f"[{group['title']}] {sender_name}: {message}", "message")
-                
-                # Отправить в группу с человечным поведением!
-                try:
-                    client = TelegramClient(str(session_file), int(app_id), app_hash)
-                    await client.connect()
+                    phone = sender["phone"]
+                    session_file = SESSIONS_DIR / phone / f"{phone}.session"
                     
-                    if await client.is_user_authorized():
-                        chat_id = int(telegram_group_id)
-                        
-                        # Выбрать действие: больше сообщений для живого общения
-                        action_type = random.choices(
-                            ["message", "reaction", "video", "reply"],
-                            weights=[60, 15, 5, 20],  # Больше сообщений и ответов
+                    if not session_file.exists():
+                        continue
+                    
+                    app_id = sender.get("app_id") or 2040
+                    app_hash = sender.get("app_hash") or "b18441a1ff607e10a989891a5462e627"
+                    sender_name = sender.get("first_name", phone[-4:])
+                    
+                    # === ВЫБОР РАЗМЕРА СООБЩЕНИЯ ===
+                    topic_energy -= 1
+                    
+                    # Когда тема затухает - пауза и новая тема!
+                    if topic_energy <= 0:
+                        add_log(f"[{group['title']}] Тема затухла... пауза 30 сек", "warning")
+                        await asyncio.sleep(30)
+                        message = random.choice(NEW_TOPICS)
+                        topic_energy = random.randint(8, 15)  # Новая энергия
+                        add_log(f"[{group['title']}] Новая тема вброшена!", "success")
+                    else:
+                        # Выбор типа сообщения по энергии и случайности
+                        msg_type = random.choices(
+                            ["short", "medium", "long", "ai"],
+                            weights=[30, 25, 15, 30],  # 30% коротких, 30% AI
                             k=1
                         )[0]
                         
-                        # Получить последние сообщения для реакций/ответов
-                        recent_messages = []
-                        try:
-                            async for msg in client.iter_messages(chat_id, limit=10):
-                                if msg.text and msg.id:
-                                    recent_messages.append(msg)
-                        except:
-                            pass
-                        
-                        if action_type == "reaction" and recent_messages:
-                            # === РЕАКЦИЯ на сообщение ===
-                            target_msg = random.choice(recent_messages[:5])
-                            reactions = ["👍", "❤️", "🔥", "😂", "🤔", "👏", "💯", "😍", "🙌", "✨"]
-                            reaction = random.choice(reactions)
-                            try:
-                                from telethon.tl.functions.messages import SendReactionRequest
-                                from telethon.tl.types import ReactionEmoji
-                                await client(SendReactionRequest(
-                                    peer=chat_id,
-                                    msg_id=target_msg.id,
-                                    reaction=[ReactionEmoji(emoticon=reaction)]
-                                ))
-                                add_log(f"[{group['title']}] {reaction} реакция на: {target_msg.text[:30]}...", "success")
-                                msg_count += 1
-                            except Exception as e:
-                                # Если реакции не работают, отправим сообщение
-                                action_type = "message"
-                        
-                        elif action_type == "video":
-                            # === ОТПРАВКА ВИДЕО с "просмотром" ===
-                            youtube_videos = [
-                                ("https://youtu.be/dQw4w9WgXcQ", "Never Gonna Give You Up", 3),
-                                ("https://youtu.be/jNQXAC9IVRw", "Me at the zoo", 1),
-                                ("https://youtu.be/9bZkp7q19f0", "Gangnam Style", 4),
-                                ("https://youtu.be/kJQP7kiw5Fk", "Despacito", 5),
-                                ("https://youtu.be/RgKAFK5djSk", "See You Again", 4),
-                            ]
-                            video_url, video_name, video_mins = random.choice(youtube_videos)
-                            
-                            # Typing + отправка ссылки
-                            typing_time = random.uniform(1, 3)
-                            async with client.action(chat_id, 'typing'):
-                                await asyncio.sleep(typing_time)
-                            
-                            video_comments = [
-                                f"Глянь это видео {video_url}",
-                                f"Вот крутое {video_url}",
-                                f"Смотри что нашел {video_url}",
-                                f"{video_url} огонь!",
-                            ]
-                            await client.send_message(chat_id, random.choice(video_comments))
-                            add_log(f"[{group['title']}] Видео: {video_name}", "success")
-                            
-                            # "Просмотр" видео другими участниками (пауза)
-                            watch_time = video_mins * 60 * random.uniform(0.3, 0.7)  # 30-70% от длины
-                            add_log(f"[{group['title']}] Смотрят видео... {watch_time:.0f}s", "info")
-                            await asyncio.sleep(min(watch_time, 120))  # Максимум 2 минуты
-                            
-                            # Реакция после "просмотра"
-                            video_reactions = ["🔥🔥🔥", "Норм видос", "Класс!", "Видел уже", "Топ", "😂😂"]
-                            await client.send_message(chat_id, random.choice(video_reactions))
-                            msg_count += 2
-                        
-                        elif action_type == "reply" and recent_messages:
-                            # === ОТВЕТ на конкретное сообщение (развёрнутый!) ===
-                            target_msg = random.choice(recent_messages[:5])
-                            
-                            # Генерируем развёрнутый ответ
-                            reply_templates = [
-                                f"да блин согласен на все сто, сам так думаю",
-                                f"ну хз не уверен тут, но может ты и прав",
-                                f"точняк! я тоже через это проходил кстати",
-                                f"а я бы добавил что еще важно учитывать...",
-                                f"ооо это вообще отдельная тема, могу рассказать",
-                                f"нуну, спорный момент но ладно",
-                                f"кстати да, хорошо что напомнил",
-                                f"+1 полностью поддерживаю",
-                            ]
-                            reply_text = random.choice(reply_templates)
-                            
-                            # Typing пропорционально
-                            typing_time = len(reply_text) / random.uniform(4, 7)
-                            typing_time = max(2, min(typing_time, 15))
-                            async with client.action(chat_id, 'typing'):
-                                await asyncio.sleep(typing_time)
-                            
-                            await client.send_message(chat_id, reply_text, reply_to=target_msg.id)
-                            add_log(f"[{group['title']}] Reply: {reply_text}", "success")
-                            msg_count += 1
-                        
+                        if msg_type == "short":
+                            message = random.choice(SHORT_REPLIES)
+                        elif msg_type == "medium":
+                            message = random.choice(MEDIUM_MSGS)
+                        elif msg_type == "long":
+                            message = random.choice(LONG_MSGS)
                         else:
-                            # === ОБЫЧНОЕ СООБЩЕНИЕ ===
-                            # Typing пропорционально длине сообщения (как реальный человек печатает)
-                            chars_per_second = random.uniform(3, 6)  # 3-6 символов в секунду
-                            typing_time = len(message) / chars_per_second
-                            typing_time = max(2, min(typing_time, 25))  # От 2 до 25 сек
-                            add_log(f"[{group['title']}] Typing... ({typing_time:.1f}s) [{len(message)} chars]", "info")
-                            async with client.action(chat_id, 'typing'):
-                                await asyncio.sleep(typing_time)
-                            
-                            await client.send_message(chat_id, message)
-                            add_log(f"[{group['title']}] {message[:60]}...", "success")
-                            
-                            # Сохранить в контекст для AI
+                            # AI сообщение
                             try:
-                                from openai_chat import get_chat_manager
+                                from openai_chat import get_chat_manager, PERSONALITIES
                                 chat_manager = get_chat_manager(AI_API_KEY, AI_PROVIDER)
-                                chat_manager.add_to_history(group_id, sender_name, message)
+                                personality = random.choice(PERSONALITIES)
+                                context = chat_manager.get_context(group_id)
+                                topic = group.get("assigned_topic", {})
+                                
+                                message = await chat_manager.generate_message(
+                                    group_id=group_id,
+                                    sender_name=sender_name,
+                                    sender_personality=personality,
+                                    topic=topic,
+                                    context=context,
+                                    is_first_message=len(context) == 0
+                                )
+                            except Exception as e:
+                                message = random.choice(MEDIUM_MSGS)
+                    
+                    # === ОТПРАВКА В TELEGRAM ===
+                    try:
+                        client = TelegramClient(str(session_file), int(app_id), app_hash)
+                        await client.connect()
+                        
+                        if await client.is_user_authorized():
+                            chat_id = int(telegram_group_id)
+                            
+                            # Выбор действия: сообщение/реакция/ответ
+                            action = random.choices(
+                                ["msg", "react", "reply"],
+                                weights=[50, 25, 25],
+                                k=1
+                            )[0]
+                            
+                            recent_msgs = []
+                            try:
+                                async for m in client.iter_messages(chat_id, limit=8):
+                                    if m.text and m.id:
+                                        recent_msgs.append(m)
                             except:
                                 pass
                             
-                            msg_count += 1
-                    else:
-                        add_log(f"Не авторизован: {phone}", "warning")
+                            if action == "react" and recent_msgs:
+                                # === РЕАКЦИЯ ===
+                                target = random.choice(recent_msgs[:5])
+                                emoji = random.choice(["👍", "❤️", "🔥", "😂", "🤔", "👏", "💯"])
+                                try:
+                                    from telethon.tl.functions.messages import SendReactionRequest
+                                    from telethon.tl.types import ReactionEmoji
+                                    await client(SendReactionRequest(
+                                        peer=chat_id,
+                                        msg_id=target.id,
+                                        reaction=[ReactionEmoji(emoticon=emoji)]
+                                    ))
+                                    add_log(f"[{group['title']}] {sender_name}: {emoji}", "success")
+                                    msg_count += 1
+                                except:
+                                    action = "msg"
+                            
+                            if action == "reply" and recent_msgs:
+                                # === ОТВЕТ НА СООБЩЕНИЕ ===
+                                target = random.choice(recent_msgs[:5])
+                                typing_time = len(message) / random.uniform(4, 8)
+                                typing_time = max(1, min(typing_time, 20))
+                                
+                                async with client.action(chat_id, 'typing'):
+                                    await asyncio.sleep(typing_time)
+                                
+                                await client.send_message(chat_id, message, reply_to=target.id)
+                                add_log(f"[{group['title']}] {sender_name} ответил: {message[:40]}...", "success")
+                                msg_count += 1
+                                
+                            elif action == "msg" or not recent_msgs:
+                                # === ОБЫЧНОЕ СООБЩЕНИЕ ===
+                                typing_time = len(message) / random.uniform(3, 7)
+                                typing_time = max(1, min(typing_time, 25))
+                                
+                                add_log(f"[{group['title']}] {sender_name} печатает... ({typing_time:.0f}s)", "info")
+                                async with client.action(chat_id, 'typing'):
+                                    await asyncio.sleep(typing_time)
+                                
+                                await client.send_message(chat_id, message)
+                                add_log(f"[{group['title']}] {sender_name}: {message[:50]}...", "success")
+                                
+                                # Сохранить в историю
+                                try:
+                                    from openai_chat import get_chat_manager
+                                    chat_manager = get_chat_manager(AI_API_KEY, AI_PROVIDER)
+                                    chat_manager.add_to_history(group_id, sender_name, message)
+                                except:
+                                    pass
+                                
+                                msg_count += 1
+                        
+                        await client.disconnect()
+                        
+                    except Exception as e:
+                        add_log(f"TG ошибка: {str(e)[:40]}", "error")
                     
-                    await client.disconnect()
-                    await asyncio.sleep(2)  # Пауза чтобы избежать database locked
+                    # === ПАУЗА МЕЖДУ СООБЩЕНИЯМИ (живой чат!) ===
+                    if len(message) < 10:
+                        # Короткие сообщения - быстрые паузы
+                        wait = random.uniform(2, 8)
+                    elif topic_energy > 7:
+                        # Активная тема - быстро
+                        wait = random.uniform(5, 15)
+                    else:
+                        # Тема затухает - медленнее
+                        wait = random.uniform(15, 35)
+                    
+                    add_log(f"... пауза {wait:.0f}с ...", "info")
+                    await asyncio.sleep(wait)
                 
-                except Exception as e:
-                    add_log(f"Ошибка TG: {str(e)[:60]}", "error")
-                    await asyncio.sleep(3)  # Дополнительная пауза при ошибке
-            
             except Exception as e:
                 add_log(f"Ошибка: {str(e)[:50]}", "error")
-            
-            # Пауза между сообщениями (как реальный чат - иногда быстро, иногда медленно)
-            if random.random() > 0.7:
-                # Быстрый ответ - 5-15 сек (активный чат)
-                wait_time = random.uniform(5, 15)
-            else:
-                # Обычная пауза - 15-45 сек
-                wait_time = random.uniform(15, 45)
-            add_log(f"Пауза {wait_time:.0f} сек...", "info")
-            await asyncio.sleep(wait_time)
         
-        add_log(f"Цикл: {msg_count} сообщений", "success")
-        # Небольшая пауза между циклами - чат продолжается активно
-        await asyncio.sleep(random.uniform(10, 30))
+        add_log(f"=== РАУНД ЗАВЕРШЁН: {msg_count} сообщений ===", "success")
+        
+        # Пауза между раундами (5-15 сек)
+        round_pause = random.uniform(5, 15)
+        add_log(f"Следующий раунд через {round_pause:.0f} сек...", "info")
+        await asyncio.sleep(round_pause)
     
     progress_status = {"active": False, "current": 0, "total": 0, "message": ""}
     add_log("=== АВТО-ЧАТ ОСТАНОВЛЕН ===", "warning")

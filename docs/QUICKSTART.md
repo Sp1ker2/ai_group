@@ -147,3 +147,4 @@ kubectl top pods -n telegram-farm
 
 
 
+
