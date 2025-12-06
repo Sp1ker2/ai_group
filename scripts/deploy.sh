@@ -71,3 +71,6 @@ echo "2. Check logs: kubectl logs -f <pod-name> -n $NAMESPACE"
 echo "3. Test a job: kubectl apply -f k8s/android-worker/job-example.yaml"
 
 
+
+
+

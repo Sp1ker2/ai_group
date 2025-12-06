@@ -66,3 +66,6 @@ check-ip: ## Проверить исходящий IP
 	@kubectl run check-ip-$$(date +%s) -n telegram-farm --image=curlimages/curl --rm -it --restart=Never -- curl -s https://ifconfig.me
 
 
+
+
+

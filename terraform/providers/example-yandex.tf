@@ -96,3 +96,6 @@ output "kubeconfig" {
 }
 
 
+
+
+

@@ -48,6 +48,8 @@ services:
         condition: service_healthy
     volumes:
       - ./docker/control-api:/app
+      - ./local-storage:/app/../local-storage
+      - ./scripts:/app/../scripts
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]

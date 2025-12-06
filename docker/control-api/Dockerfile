@@ -6,6 +6,9 @@ WORKDIR /app
 RUN pip install --no-cache-dir \
     fastapi \
     uvicorn[standard] \
+    jinja2 \
+    python-multipart \
+    aiofiles \
     asyncpg \
     redis \
     pydantic \
@@ -19,5 +22,6 @@ EXPOSE 8000
 
 # Команда запуска
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
 
 

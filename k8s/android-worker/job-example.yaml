@@ -41,6 +41,17 @@ spec:
               key: api-token
         - name: SESSION_STORAGE_PATH
           value: "/data/sessions"
+        # Групповое общение (опционально)
+        - name: ENABLE_GROUP_CHAT
+          value: "false"  # Установите "true" для включения
+        - name: GROUP_ID
+          value: ""  # ID группы (если уже создана)
+        - name: GROUP_TITLE
+          value: "Warm-up Chat"  # Название группы
+        - name: MEMBER_PHONES
+          value: ""  # Номера участников через запятую
+        - name: MESSAGE_TEXT
+          value: "Hello from warm-up!"  # Текст сообщения
         securityContext:
           privileged: true
           capabilities:
@@ -69,5 +80,6 @@ spec:
           type: Directory
       nodeSelector:
         node-role.kubernetes.io/worker: ""
+
 
 
