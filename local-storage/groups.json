@@ -1,0 +1,58 @@
+{
+  "groups": [
+    {
+      "id": "group_20251205_181727_1",
+      "title": "Gladiator",
+      "admin": {
+        "phone": "573025288931",
+        "first_name": "Heather",
+        "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288931\\573025288931.session",
+        "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288931\\573025288931.json",
+        "app_id": 2040,
+        "app_hash": "b18441a1ff607e10a989891a5462e627"
+      },
+      "members": [
+        {
+          "phone": "573042327690",
+          "first_name": "Randy",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573042327690\\573042327690.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573042327690\\573042327690.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        },
+        {
+          "phone": "573025288918",
+          "first_name": "Cassandra",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288918\\573025288918.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288918\\573025288918.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        }
+      ],
+      "all_phones": [
+        "573025288931",
+        "573042327690",
+        "573025288918"
+      ],
+      "member_count": 3,
+      "created_at": "2025-12-05T18:17:27.656579",
+      "chat_active": false,
+      "status": "created",
+      "assigned_topic": {
+        "id": "gladiator",
+        "name": "Gladiator",
+        "category": "movies",
+        "prompts": [
+          "Смотрели Гладиатор?",
+          "Are you not entertained?",
+          "Рассел Кроу топ?"
+        ]
+      },
+      "telegram_group_id": -5056773544
+    }
+  ],
+  "schedule": {
+    "enabled": false,
+    "interval_minutes": 60
+  }
+}
