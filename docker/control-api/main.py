@@ -344,7 +344,7 @@ async def get_sessions():
                     'account_id': str(account_id),
                     'first_name': data.get('first_name'),
                     'username': data.get('username'),
-                    'twoFA': bool(data.get('twoFA') or data.get('2fa') or data.get('password'))
+                    'twoFA': data.get('twoFA') or data.get('2fa') or data.get('password') or None
                 })
         except Exception:
             # Если ошибка чтения файла, пробуем по имени файла/папки
@@ -2012,9 +2012,16 @@ async def auto_create_groups(request: AutoGroupRequest):
             
             add_log(f"Создание TG групп: {len(groups_created)} шт.", "info")
             
-            for idx, group in enumerate(groups_created):
+            # Параллельная обработка создания групп (3-5 потоков)
+            num_threads = min(max(3, len(groups_created) // 3), 5, len(groups_created))
+            add_log(f"🚀 Создание в {num_threads} потоках для ускорения", "info")
+            
+            # Создать функцию для создания одной группы
+            async def create_single_group(group, group_idx, total_groups):
+                """Создать одну Telegram группу"""
+                nonlocal telegram_created  # Объявить, что используем переменную из внешней области
                 try:
-                    add_log(f"[{idx+1}/{len(groups_created)}] Создаю группу: {group['title']}", "info")
+                    add_log(f"[{group_idx+1}/{total_groups}] Создаю группу: {group['title']}", "info")
                     
                     admin = group["admin"]
                     admin_phone = admin["phone"]
@@ -2022,7 +2029,7 @@ async def auto_create_groups(request: AutoGroupRequest):
                     
                     if not admin_session.exists():
                         add_log(f"Session не найден: {admin_phone}", "error")
-                        continue
+                        return
                     
                     app_id = admin.get("app_id") or int(os.getenv('TELEGRAM_API_ID', 2040))
                     app_hash = admin.get("app_hash") or os.getenv('TELEGRAM_API_HASH', "b18441a1ff607e10a989891a5462e627")
@@ -2041,7 +2048,7 @@ async def auto_create_groups(request: AutoGroupRequest):
                     if not await admin_client.is_user_authorized():
                         add_log(f"Админ не авторизован: {admin_phone}", "error")
                         await admin_client.disconnect()
-                        continue
+                        return
                     
                     add_log(f"Админ подключен: {admin_phone}", "success")
                     
@@ -2253,9 +2260,6 @@ async def auto_create_groups(request: AutoGroupRequest):
                             # Получить ID группы (разные варианты структуры ответа)
                             tg_id = None
                             try:
-                                # Логируем структуру ответа для отладки
-                                add_log(f"Тип ответа: {type(result).__name__}", "info")
-                                
                                 if hasattr(result, 'chats') and result.chats:
                                     tg_id = result.chats[0].id
                                     add_log(f"ID найден через chats: {tg_id}", "info")
@@ -2282,55 +2286,57 @@ async def auto_create_groups(request: AutoGroupRequest):
                                             tg_id = d.id
                                             add_log(f"ID найден в диалогах: {tg_id}", "info")
                                             break
-                            except Exception as e:
-                                add_log(f"Ошибка получения ID: {str(e)}", "error")
-                                import traceback
-                                add_log(f"Traceback: {traceback.format_exc()[:200]}", "error")
-                            
-                            if tg_id:
-                                group["telegram_group_id"] = tg_id
-                                group["status"] = "created"
-                                telegram_created += 1
-                                add_log(f"ГРУППА СОЗДАНА: {group['title']} (ID: {tg_id})", "success")
                                 
-                                # Сохранить сразу после создания группы
-                                try:
-                                    with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                        json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-                                    add_log(f"Статус группы сохранен в файл", "info")
-                                except Exception as save_err:
-                                    add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
-                            else:
-                                # Группа создана но ID не получен - попробуем найти
-                                add_log(f"Группа создана, но ID не получен. Ищу в диалогах...", "info")
-                                await asyncio.sleep(2)
-                                dialogs = await admin_client.get_dialogs(limit=20)
-                                for d in dialogs:
-                                    if d.title == group["title"]:
-                                        tg_id = d.id
-                                        group["telegram_group_id"] = tg_id
-                                        group["status"] = "created"
-                                        telegram_created += 1
-                                        add_log(f"ГРУППА НАЙДЕНА: {group['title']} (ID: {tg_id})", "success")
-                                        
-                                        # Сохранить сразу после нахождения группы
-                                        try:
-                                            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-                                            add_log(f"Статус группы сохранен в файл", "info")
-                                        except Exception as save_err:
-                                            add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
-                                        
-                                        break
-                                
-                                if not tg_id:
-                                    group["status"] = "created_no_id"
-                                    add_log(f"Группа создана, но ID не найден: {group['title']}", "warning")
+                                if tg_id:
+                                    group["telegram_group_id"] = tg_id
+                                    group["status"] = "created"
+                                    telegram_created += 1
+                                    add_log(f"✅ ГРУППА СОЗДАНА: {group['title']} (ID: {tg_id})", "success")
                                     
+                                    # Сохранить сразу после создания группы
+                                    try:
+                                        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+                                            json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+                                        clear_groups_cache()
+                                        add_log(f"Статус группы сохранен в файл", "info")
+                                    except Exception as save_err:
+                                        add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
+                                else:
+                                    # Группа создана но ID не получен - попробуем найти
+                                    add_log(f"Группа создана, но ID не получен. Ищу в диалогах...", "info")
+                                    await asyncio.sleep(2)
+                                    dialogs = await admin_client.get_dialogs(limit=20)
+                                    for d in dialogs:
+                                        if d.title == group["title"]:
+                                            tg_id = d.id
+                                            group["telegram_group_id"] = tg_id
+                                            group["status"] = "created"
+                                            telegram_created += 1
+                                            add_log(f"ГРУППА НАЙДЕНА: {group['title']} (ID: {tg_id})", "success")
+                                            
+                                            # Сохранить сразу после нахождения группы
+                                            try:
+                                                with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+                                                    json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+                                                clear_groups_cache()
+                                                add_log(f"Статус группы сохранен в файл", "info")
+                                            except Exception as save_err:
+                                                add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
+                                            
+                                            break
+                                    
+                                    if not tg_id:
+                                        group["status"] = "created_no_id"
+                                        add_log(f"Группа создана, но ID не найден: {group['title']}", "warning")
+                                        
+                            except Exception as e:
+                                add_log(f"Ошибка при создании группы: {str(e)}", "error")
+                                import traceback
+                                add_log(f"Traceback: {traceback.format_exc()[:300]}", "error")
+                                group["status"] = "error"
+                                group["error"] = str(e)[:100]
                         except Exception as e:
                             add_log(f"Ошибка при создании группы: {str(e)}", "error")
-                            import traceback
-                            add_log(f"Traceback: {traceback.format_exc()[:300]}", "error")
                             group["status"] = "error"
                             group["error"] = str(e)[:100]
                     else:
@@ -2344,11 +2350,25 @@ async def auto_create_groups(request: AutoGroupRequest):
                     add_log(f"Ошибка: {str(e)[:50]}", "error")
                     group["status"] = "error"
             
-            # Сохранить обновлённые статусы
-            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+            # Запустить параллельные задачи для создания групп
+            semaphore = asyncio.Semaphore(num_threads)
             
-            add_log(f"Готово! Создано {telegram_created} TG групп", "success")
+            async def create_with_limit(task):
+                async with semaphore:
+                    return await task
+            
+            tasks = []
+            for idx, group in enumerate(groups_created):
+                task = create_single_group(group, idx, len(groups_created))
+                tasks.append(create_with_limit(task))
+            
+            # Запустить все задачи параллельно
+            await asyncio.gather(*tasks)
+            
+            # Подсчитать созданные группы
+            telegram_created = sum(1 for g in groups_created if g.get("status") == "created")
+            
+            # Старый последовательный код заменён на параллельную обработку выше
         
         # Статистика по группам
         group_stats = []
@@ -2892,13 +2912,29 @@ async def start_auto_chat():
         for g in groups:
             auto_chat_active[g["id"]] = True
         
-        # Запустить фоновую задачу
-        asyncio.create_task(run_auto_chat_loop(groups))
+        # Разделить группы на потоки (параллельная обработка)
+        # Количество потоков: минимум 2, максимум 5, или количество групп если их меньше
+        num_threads = min(max(2, len(groups) // 5), 5, len(groups))
+        groups_per_thread = len(groups) // num_threads if num_threads > 0 else len(groups)
+        
+        add_log(f"🚀 Запуск {num_threads} потоков для обработки {len(groups)} групп", "info")
+        
+        # Разделить группы на части
+        group_chunks = []
+        for i in range(0, len(groups), groups_per_thread):
+            chunk = groups[i:i + groups_per_thread]
+            if chunk:
+                group_chunks.append(chunk)
+        
+        # Запустить параллельные задачи для каждого потока
+        for i, chunk in enumerate(group_chunks):
+            asyncio.create_task(run_auto_chat_loop(chunk, thread_id=i+1, total_threads=num_threads))
         
         return {
             "status": "success",
-            "message": f"Авто-чат запущен для {len(groups)} групп",
-            "groups": len(groups)
+            "message": f"Авто-чат запущен для {len(groups)} групп в {num_threads} потоках",
+            "groups": len(groups),
+            "threads": num_threads
         }
     
     except Exception as e:
@@ -3105,14 +3141,20 @@ def add_log(message: str, log_type: str = "info"):
     print(f"[{log_type.upper()}] {safe_msg}")
 
 
-async def run_auto_chat_loop(groups):
-    """Фоновый цикл автоматического чата - ЖИВОЕ ОБЩЕНИЕ!"""
+async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
+    """Фоновый цикл автоматического чата - ЖИВОЕ ОБЩЕНИЕ! (параллельная обработка)"""
     global progress_status
     from telethon import TelegramClient
     import random
     
-    add_log("=== АВТО-ЧАТ ЗАПУЩЕН ===", "success")
-    add_log(f"Активных групп: {len(groups)}", "info")
+    thread_prefix = f"[Поток {thread_id}/{total_threads}]" if total_threads > 1 else ""
+    
+    def log_with_thread(message, log_type="info"):
+        """Логирование с префиксом потока"""
+        add_log(f"{thread_prefix} {message}", log_type)
+    
+    log_with_thread("=== АВТО-ЧАТ ЗАПУЩЕН ===", "success")
+    log_with_thread(f"Активных групп: {len(groups)}", "info")
     
     # Новые темы для вброса когда разговор затухает
     NEW_TOPICS = [
@@ -3193,7 +3235,63 @@ async def run_auto_chat_loop(groups):
                 
                 # === ЖИВОЕ ОБЩЕНИЕ: 5-15 сообщений за раунд ===
                 messages_this_round = random.randint(5, 15)
-                add_log(f"[{group['title']}] === РАУНД: {messages_this_round} сообщений ===", "info")
+                log_with_thread(f"[{group['title']}] === РАУНД: {messages_this_round} сообщений ===", "info")
+                
+                # Периодически просматривать сообщения (чтобы было видно "прочитано")
+                if random.random() < 0.3:  # 30% шанс просмотреть сообщения перед раундом
+                    try:
+                        viewer = random.choice(all_members)
+                        viewer_phone = viewer.get("phone")
+                        if viewer_phone:
+                            viewer_session = SESSIONS_DIR / viewer_phone / f"{viewer_phone}.session"
+                            if viewer_session.exists():
+                                viewer_json = SESSIONS_DIR / viewer_phone / f"{viewer_phone}.json"
+                                viewer_app_id = 2040
+                                viewer_app_hash = "b18441a1ff607e10a989891a5462e627"
+                                
+                                if viewer_json.exists():
+                                    with open(viewer_json, 'r') as f:
+                                        data = json.load(f)
+                                        viewer_app_id = data.get("app_id", viewer_app_id)
+                                        viewer_app_hash = data.get("app_hash", viewer_app_hash)
+                                
+                                viewer_client = await create_telegram_client(
+                                    session_path=str(viewer_session),
+                                    api_id=int(viewer_app_id),
+                                    api_hash=viewer_app_hash,
+                                    phone=viewer_phone,
+                                    use_proxy=True,
+                                    use_device_info=True
+                                )
+                                
+                                try:
+                                    await viewer_client.connect()
+                                    if await viewer_client.is_user_authorized():
+                                        try:
+                                            chat_id = int(telegram_group_id)
+                                            group_entity_viewer = await viewer_client.get_entity(chat_id)
+                                            from telethon.tl.functions.messages import ReadHistoryRequest
+                                            
+                                            # Получить последние сообщения и отметить как прочитанные
+                                            async for m in viewer_client.iter_messages(group_entity_viewer, limit=30):
+                                                if m.id:
+                                                    try:
+                                                        await viewer_client(ReadHistoryRequest(peer=group_entity_viewer, max_id=m.id))
+                                                        break
+                                                    except:
+                                                        pass
+                                            
+                                            viewer_name = viewer.get("first_name", viewer_phone[-4:])
+                                            log_with_thread(f"[{group['title']}] {viewer_name} просмотрел сообщения", "info")
+                                        except:
+                                            pass
+                                finally:
+                                    try:
+                                        await viewer_client.disconnect()
+                                    except:
+                                        pass
+                    except:
+                        pass
                 
                 for msg_num in range(messages_this_round):
                     if not auto_chat_active.get(group_id, False):
@@ -3316,23 +3414,46 @@ async def run_auto_chat_loop(groups):
                                 auto_chat_active[group_id] = False
                                 continue
                             
-                            # Выбор действия: сообщение/реакция/ответ/стикер/гиф/видео
+                            # Получить сообщения для проверки наличия медиа
+                            recent_msgs = []
+                            media_messages = []  # Сообщения с медиа
+                            try:
+                                async for m in client.iter_messages(group_entity, limit=100):
+                                    if m.id:
+                                        recent_msgs.append(m)
+                                        # Проверить наличие медиа
+                                        if m.photo or m.video or (m.document and m.document.mime_type and ('video/' in m.document.mime_type or 'image/' in m.document.mime_type)):
+                                            media_messages.append(m)
+                            except Exception as e:
+                                add_log(f"[{group['title']}] Не удалось получить сообщения: {str(e)[:30]}", "warning")
+                                recent_msgs = []
+                                media_messages = []
+                            
+                            # Выбор действия: сообщение/реакция/ответ/стикер/гиф/видео/просмотр медиа
+                            available_actions = ["msg", "react", "reply", "sticker", "gif", "video"]
+                            action_weights = [30, 15, 15, 10, 10, 10]
+                            
+                            # Если есть медиа - добавить действие просмотра
+                            if media_messages:
+                                available_actions.append("view_media")
+                                action_weights.append(20)
+                            
                             action = random.choices(
-                                ["msg", "react", "reply", "sticker", "gif"],
-                                weights=[35, 20, 20, 15, 10],  # Увеличены шансы на медиа
+                                available_actions,
+                                weights=action_weights,
                                 k=1
                             )[0]
                             
-                            recent_msgs = []
-                            try:
-                                async for m in client.iter_messages(group_entity, limit=8):
-                                    if m.id:
-                                        recent_msgs.append(m)
-                            except Exception as e:
-                                add_log(f"[{group['title']}] Не удалось получить сообщения: {str(e)[:30]}", "warning")
-                                # Если не можем получить сообщения, используем только обычные сообщения
-                                action = "msg"
-                                recent_msgs = []
+                            # Отметить сообщения как прочитанные (чтобы было видно "прочитано")
+                            if recent_msgs:
+                                try:
+                                    from telethon.tl.functions.messages import ReadHistoryRequest
+                                    max_msg_id = max(m.id for m in recent_msgs if m.id)
+                                    await client(ReadHistoryRequest(peer=group_entity, max_id=max_msg_id))
+                                    add_log(f"[{group['title']}] {sender_name} просмотрел сообщения (до {max_msg_id})", "info")
+                                except Exception as e:
+                                    # Если не получилось отметить как прочитанное - не критично
+                                    pass
                             
                             if action == "react" and recent_msgs:
                                 # === РЕАКЦИЯ ===
@@ -3347,6 +3468,14 @@ async def run_auto_chat_loop(groups):
                                         reaction=[ReactionEmoji(emoticon=emoji)]
                                     ))
                                     add_log(f"[{group['title']}] {sender_name}: {emoji}", "success")
+                                    
+                                    # Отметить сообщения как прочитанные
+                                    try:
+                                        from telethon.tl.functions.messages import ReadHistoryRequest
+                                        await client(ReadHistoryRequest(peer=group_entity, max_id=target.id))
+                                    except:
+                                        pass
+                                    
                                     msg_count += 1
                                 except Exception as e:
                                     add_log(f"Реакция ошибка: {str(e)[:30]}", "warning")
@@ -3374,6 +3503,16 @@ async def run_auto_chat_loop(groups):
                                         sticker = random.choice(sticker_set.documents)
                                         await client.send_file(group_entity, sticker)
                                         add_log(f"[{group['title']}] {sender_name}: [sticker: {pack_name}]", "success")
+                                        
+                                        # Отметить сообщения как прочитанные
+                                        try:
+                                            from telethon.tl.functions.messages import ReadHistoryRequest
+                                            if recent_msgs:
+                                                max_msg_id = max(m.id for m in recent_msgs if m.id)
+                                                await client(ReadHistoryRequest(peer=group_entity, max_id=max_msg_id))
+                                        except:
+                                            pass
+                                        
                                         msg_count += 1
                                 except Exception as e:
                                     add_log(f"Sticker ошибка: {str(e)[:30]}", "warning")
@@ -3407,10 +3546,221 @@ async def run_auto_chat_loop(groups):
                                             random_id=random.randint(1, 2**63)
                                         ))
                                         add_log(f"[{group['title']}] {sender_name}: [GIF: {query}]", "success")
+                                        
+                                        # Отметить сообщения как прочитанные
+                                        try:
+                                            from telethon.tl.functions.messages import ReadHistoryRequest
+                                            if recent_msgs:
+                                                max_msg_id = max(m.id for m in recent_msgs if m.id)
+                                                await client(ReadHistoryRequest(peer=group_entity, max_id=max_msg_id))
+                                        except:
+                                            pass
+                                        
                                         msg_count += 1
                                 except Exception as e:
                                     add_log(f"GIF ошибка: {str(e)[:30]}", "warning")
                                     action = "msg"
+                            
+                            elif action == "video":
+                                # === ВИДЕО через inline бота @vid ===
+                                try:
+                                    from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest
+                                    from telethon.tl.types import InputPeerEmpty
+                                    
+                                    # Попробовать использовать @vid бота (аналог @gif)
+                                    video_bot = "@vid"
+                                    
+                                    # Случайный поисковый запрос для видео
+                                    video_queries = [
+                                        "funny", "cute", "animals", "music", "dance", 
+                                        "comedy", "fail", "prank", "reaction", "meme",
+                                        "trending", "viral", "laugh", "smile", "happy"
+                                    ]
+                                    query = random.choice(video_queries)
+                                    
+                                    try:
+                                        # Получить результаты от inline бота
+                                        results = await client(GetInlineBotResultsRequest(
+                                            bot=await client.get_entity(video_bot),
+                                            peer=group_entity,
+                                            query=query,
+                                            offset=""
+                                        ))
+                                        
+                                        if results.results:
+                                            # Выбрать случайное видео
+                                            video_result = random.choice(results.results[:10])  # Первые 10 результатов
+                                            
+                                            # Отправить видео
+                                            await client(SendInlineBotResultRequest(
+                                                peer=group_entity,
+                                                query_id=results.query_id,
+                                                id=video_result.id
+                                            ))
+                                            
+                                            add_log(f"[{group['title']}] {sender_name}: [video: {query}]", "success")
+                                            
+                                            # Отметить сообщения как прочитанные
+                                            try:
+                                                from telethon.tl.functions.messages import ReadHistoryRequest
+                                                if recent_msgs:
+                                                    max_msg_id = max(m.id for m in recent_msgs if m.id)
+                                                    await client(ReadHistoryRequest(peer=group_entity, max_id=max_msg_id))
+                                            except:
+                                                pass
+                                            
+                                            msg_count += 1
+                                        else:
+                                            # Если нет результатов - использовать YouTube ссылки
+                                            raise Exception("No results from bot")
+                                    except Exception as e:
+                                        # Если бот не работает - использовать YouTube ссылки
+                                        try:
+                                            # Список популярных коротких видео на YouTube
+                                            youtube_videos = [
+                                                "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+                                                "https://youtu.be/dQw4w9WgXcQ",
+                                                "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                                                "https://youtu.be/jNQXAC9IVRw",
+                                                "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+                                                "https://youtu.be/9bZkp7q19f0",
+                                                "https://www.youtube.com/watch?v=9bZkp7q19f0",
+                                                "https://youtu.be/kJQP7kiw5Fk",
+                                                "https://www.youtube.com/watch?v=kJQP7kiw5Fk",
+                                                "https://youtu.be/fJ9rUzIMcZQ",
+                                                "https://www.youtube.com/watch?v=fJ9rUzIMcZQ"
+                                            ]
+                                            
+                                            video_url = random.choice(youtube_videos)
+                                            
+                                            # Имитация печати
+                                            typing_time = random.uniform(2, 5)
+                                            async with client.action(group_entity, 'typing'):
+                                                await asyncio.sleep(typing_time)
+                                            
+                                            # Отправить YouTube ссылку (Telegram автоматически создаст превью)
+                                            await client.send_message(group_entity, video_url)
+                                            add_log(f"[{group['title']}] {sender_name}: [video: YouTube]", "success")
+                                            
+                                            # Отметить сообщения как прочитанные
+                                            try:
+                                                from telethon.tl.functions.messages import ReadHistoryRequest
+                                                if recent_msgs:
+                                                    max_msg_id = max(m.id for m in recent_msgs if m.id)
+                                                    await client(ReadHistoryRequest(peer=group_entity, max_id=max_msg_id))
+                                            except:
+                                                pass
+                                            
+                                            msg_count += 1
+                                        except Exception as e2:
+                                            # Если и YouTube не работает - отправить обычное сообщение
+                                            add_log(f"Video отправка ошибка: {str(e2)[:30]}", "warning")
+                                            action = "msg"
+                                        
+                                except Exception as e:
+                                    add_log(f"Video ошибка: {str(e)[:30]}", "warning")
+                                    action = "msg"
+                            
+                            if action == "view_media" and media_messages:
+                                # === ПРОСМОТР МЕДИА (ФОТО/ВИДЕО) ===
+                                try:
+                                    from io import BytesIO
+                                    
+                                    # Выбрать случайное медиа
+                                    media_msg = random.choice(media_messages)
+                                    
+                                    # Определить тип медиа
+                                    is_video = False
+                                    is_photo = False
+                                    video_duration = 0
+                                    
+                                    if media_msg.video:
+                                        is_video = True
+                                        video_duration = getattr(media_msg.video, 'duration', 0) or 0
+                                        log_with_thread(f"[{group['title']}] {sender_name} просматривает видео ({video_duration} сек)...", "info")
+                                    elif media_msg.photo:
+                                        is_photo = True
+                                        log_with_thread(f"[{group['title']}] {sender_name} просматривает фото...", "info")
+                                    elif media_msg.document and media_msg.document.mime_type:
+                                        if 'video/' in media_msg.document.mime_type:
+                                            is_video = True
+                                            video_duration = getattr(media_msg.document, 'duration', 0) or 0
+                                            log_with_thread(f"[{group['title']}] {sender_name} просматривает видео ({video_duration} сек)...", "info")
+                                        elif 'image/' in media_msg.document.mime_type:
+                                            is_photo = True
+                                            log_with_thread(f"[{group['title']}] {sender_name} просматривает фото...", "info")
+                                    
+                                    # Скачать медиа (это автоматически отметит как просмотренное)
+                                    try:
+                                        await client.download_media(media_msg, file=BytesIO())
+                                        log_with_thread(f"[{group['title']}] {sender_name} скачал медиа", "info")
+                                    except Exception as e:
+                                        add_log(f"Ошибка скачивания медиа: {str(e)[:30]}", "warning")
+                                    
+                                    # Имитация просмотра
+                                    if is_video and video_duration > 0:
+                                        # Для видео: длительность + пауза 10-30 сек
+                                        watch_time = video_duration + random.uniform(10, 30)
+                                        watch_time = max(5, min(watch_time, 300))  # От 5 до 300 сек
+                                        
+                                        # Показывать прогресс каждые 5-10 секунд
+                                        progress_interval = random.uniform(5, 10)
+                                        elapsed = 0
+                                        
+                                        while elapsed < watch_time:
+                                            sleep_time = min(progress_interval, watch_time - elapsed)
+                                            await asyncio.sleep(sleep_time)
+                                            elapsed += sleep_time
+                                            
+                                            if elapsed < watch_time:
+                                                progress = f"{elapsed:.0f}/{watch_time:.0f} сек"
+                                                log_with_thread(f"[{group['title']}] {sender_name} смотрит видео... {progress}", "info")
+                                        
+                                        log_with_thread(f"[{group['title']}] {sender_name} просмотрел видео ({watch_time:.0f} сек)", "success")
+                                    elif is_photo:
+                                        # Для фото: пауза 2-5 секунд
+                                        view_time = random.uniform(2, 5)
+                                        await asyncio.sleep(view_time)
+                                        log_with_thread(f"[{group['title']}] {sender_name} просмотрел фото ({view_time:.1f} сек)", "success")
+                                    else:
+                                        # Для других медиа: пауза 3-8 секунд
+                                        view_time = random.uniform(3, 8)
+                                        await asyncio.sleep(view_time)
+                                        log_with_thread(f"[{group['title']}] {sender_name} просмотрел медиа ({view_time:.1f} сек)", "success")
+                                    
+                                    # Комментирование медиа (30-50% шанс)
+                                    if random.random() < 0.4:  # 40% шанс
+                                        media_comments = [
+                                            "классное видео!", "интересно", "круто", "вау", 
+                                            "ого", "прикольно", "забавно", "норм", "ого как",
+                                            "клево", "супер", "ого какое", "интересное",
+                                            "класс", "вау какое", "прикольное", "крутое"
+                                        ]
+                                        comment = random.choice(media_comments)
+                                        
+                                        try:
+                                            typing_time = len(comment) / random.uniform(3, 6)
+                                            typing_time = max(1, min(typing_time, 10))
+                                            
+                                            async with client.action(group_entity, 'typing'):
+                                                await asyncio.sleep(typing_time)
+                                            
+                                            await client.send_message(group_entity, comment, reply_to=media_msg.id)
+                                            log_with_thread(f"[{group['title']}] {sender_name} прокомментировал: {comment}", "success")
+                                            msg_count += 1
+                                        except Exception as e:
+                                            add_log(f"Ошибка комментирования: {str(e)[:30]}", "warning")
+                                    
+                                    # Отметить сообщения как прочитанные
+                                    try:
+                                        from telethon.tl.functions.messages import ReadHistoryRequest
+                                        await client(ReadHistoryRequest(peer=group_entity, max_id=media_msg.id))
+                                    except:
+                                        pass
+                                    
+                                except Exception as e:
+                                    add_log(f"Ошибка просмотра медиа: {str(e)[:40]}", "warning")
+                                    action = "msg"  # Fallback на обычное сообщение
                             
                             if action == "reply" and recent_msgs:
                                 # === ОТВЕТ НА СООБЩЕНИЕ ===
@@ -3423,6 +3773,14 @@ async def run_auto_chat_loop(groups):
                                 
                                 await client.send_message(group_entity, message, reply_to=target.id)
                                 add_log(f"[{group['title']}] {sender_name} ответил: {message[:40]}...", "success")
+                                
+                                # Отметить сообщения как прочитанные
+                                try:
+                                    from telethon.tl.functions.messages import ReadHistoryRequest
+                                    await client(ReadHistoryRequest(peer=group_entity, max_id=target.id))
+                                except:
+                                    pass
+                                
                                 msg_count += 1
                                 
                             elif action == "msg" or not recent_msgs:
@@ -3436,6 +3794,20 @@ async def run_auto_chat_loop(groups):
                                 
                                 await client.send_message(group_entity, message)
                                 add_log(f"[{group['title']}] {sender_name}: {message[:50]}...", "success")
+                                
+                                # Отметить все сообщения как прочитанные после отправки
+                                try:
+                                    from telethon.tl.functions.messages import ReadHistoryRequest
+                                    # Получить последние сообщения и отметить как прочитанные
+                                    async for m in client.iter_messages(group_entity, limit=20):
+                                        if m.id:
+                                            try:
+                                                await client(ReadHistoryRequest(peer=group_entity, max_id=m.id))
+                                                break  # Достаточно отметить до последнего сообщения
+                                            except:
+                                                pass
+                                except:
+                                    pass
                                 
                                 # Сохранить в историю
                                 try:
@@ -3474,15 +3846,15 @@ async def run_auto_chat_loop(groups):
             except Exception as e:
                 add_log(f"Ошибка: {str(e)[:50]}", "error")
         
-        add_log(f"=== РАУНД ЗАВЕРШЁН: {msg_count} сообщений ===", "success")
+        log_with_thread(f"=== РАУНД ЗАВЕРШЁН: {msg_count} сообщений ===", "success")
         
         # Пауза между раундами (5-15 сек)
         round_pause = random.uniform(5, 15)
-        add_log(f"Следующий раунд через {round_pause:.0f} сек...", "info")
+        log_with_thread(f"Следующий раунд через {round_pause:.0f} сек...", "info")
         await asyncio.sleep(round_pause)
     
     progress_status = {"active": False, "current": 0, "total": 0, "message": ""}
-    add_log("=== АВТО-ЧАТ ОСТАНОВЛЕН ===", "warning")
+    log_with_thread("=== АВТО-ЧАТ ОСТАНОВЛЕН ===", "warning")
 
 
 # ========== PROXY MANAGEMENT API ==========

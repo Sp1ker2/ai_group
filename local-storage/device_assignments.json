@@ -1,0 +1,1802 @@
+{
+  "573025288918": {
+    "device_model": "ASUS_AI2201",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Asus",
+    "device_name": "ROG Phone 6"
+  },
+  "573025288931": {
+    "device_model": "2107113SG",
+    "system_version": "Android 12",
+    "app_version": "10.8.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Xiaomi",
+    "device_name": "Poco X3 GT"
+  },
+  "573042327690": {
+    "device_model": "XT2201-2",
+    "system_version": "Android 13",
+    "app_version": "10.10.0",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Motorola",
+    "device_name": "Edge 30 Pro"
+  },
+  "573025290034": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573042312102": {
+    "device_model": "SM-G998B",
+    "system_version": "Android 13",
+    "app_version": "10.12.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21 Ultra"
+  },
+  "573028230896": {
+    "device_model": "23021RAA2Y",
+    "system_version": "Android 13",
+    "app_version": "10.8.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12"
+  },
+  "573028227821": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.7.1",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573028354153": {
+    "device_model": "CPH2305",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Oppo",
+    "device_name": "Find X5 Pro"
+  },
+  "573025570477": {
+    "device_model": "22021211RG",
+    "system_version": "Android 13",
+    "app_version": "10.10.1",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Xiaomi",
+    "device_name": "Poco F4"
+  },
+  "573025289370": {
+    "device_model": "A065",
+    "system_version": "Android 14",
+    "app_version": "10.10.0",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Nothing",
+    "device_name": "Phone (2)"
+  },
+  "573025569658": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.12.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573028227856": {
+    "device_model": "AC2003",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord"
+  },
+  "573025897366": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.8.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573028230853": {
+    "device_model": "LE2123",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 9 Pro"
+  },
+  "573025288905": {
+    "device_model": "SM-G998B",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21 Ultra"
+  },
+  "573025288939": {
+    "device_model": "SM-N986B",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Samsung",
+    "device_name": "Galaxy Note 20 Ultra"
+  },
+  "573025289025": {
+    "device_model": "SM-A546B",
+    "system_version": "Android 14",
+    "app_version": "10.14.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Samsung",
+    "device_name": "Galaxy A54"
+  },
+  "573025289046": {
+    "device_model": "A065",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Nothing",
+    "device_name": "Phone (2)"
+  },
+  "573025289682": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.14.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573025289830": {
+    "device_model": "ASUS_AI2301",
+    "system_version": "Android 14",
+    "app_version": "10.13.0",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Asus",
+    "device_name": "ROG Phone 7"
+  },
+  "573025289882": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.13.0",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573025289961": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573025290081": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.12.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573025290133": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573025290472": {
+    "device_model": "ASUS_AI2201",
+    "system_version": "Android 13",
+    "app_version": "10.11.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Asus",
+    "device_name": "ROG Phone 6"
+  },
+  "573025291108": {
+    "device_model": "CPH2305",
+    "system_version": "Android 13",
+    "app_version": "10.8.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Oppo",
+    "device_name": "Find X5 Pro"
+  },
+  "573025291114": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.7.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573025291254": {
+    "device_model": "SM-S918B",
+    "system_version": "Android 14",
+    "app_version": "10.7.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S23 Ultra"
+  },
+  "573025291327": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.13.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573025291509": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573025291516": {
+    "device_model": "LE2123",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 9 Pro"
+  },
+  "573025291520": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.12.0",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573025291831": {
+    "device_model": "22101316G",
+    "system_version": "Android 13",
+    "app_version": "10.10.0",
+    "lang_code": "it",
+    "system_lang_code": "it-IT",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12 Pro"
+  },
+  "573025291895": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573025393986": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573025426589": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.10.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573025569582": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.9.1",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573025569583": {
+    "device_model": "23021RAA2Y",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12"
+  },
+  "573025569587": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.14.1",
+    "lang_code": "pl",
+    "system_lang_code": "pl-PL",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573025569630": {
+    "device_model": "LE2123",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 9 Pro"
+  },
+  "573025569631": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573025569640": {
+    "device_model": "22021211RG",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Xiaomi",
+    "device_name": "Poco F4"
+  },
+  "573025569650": {
+    "device_model": "22101316G",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12 Pro"
+  },
+  "573025569655": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.11.0",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573025569659": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.8.1",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573025569661": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573025570390": {
+    "device_model": "SM-F936B",
+    "system_version": "Android 14",
+    "app_version": "10.10.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Samsung",
+    "device_name": "Galaxy Z Fold4"
+  },
+  "573025570401": {
+    "device_model": "SM-G991B",
+    "system_version": "Android 13",
+    "app_version": "10.8.1",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21"
+  },
+  "573025570421": {
+    "device_model": "2211133G",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13"
+  },
+  "573025570422": {
+    "device_model": "ASUS_AI2301",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Asus",
+    "device_name": "ROG Phone 7"
+  },
+  "573025570431": {
+    "device_model": "V2324",
+    "system_version": "Android 14",
+    "app_version": "10.14.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Vivo",
+    "device_name": "X90 Pro"
+  },
+  "573025570470": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573025570471": {
+    "device_model": "V2219",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "it",
+    "system_lang_code": "it-IT",
+    "brand": "Vivo",
+    "device_name": "X80 Pro"
+  },
+  "573025570473": {
+    "device_model": "SM-G991B",
+    "system_version": "Android 13",
+    "app_version": "10.9.2",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21"
+  },
+  "573025570474": {
+    "device_model": "Pixel 7 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Google",
+    "device_name": "Pixel 7 Pro"
+  },
+  "573025570484": {
+    "device_model": "OCE-AN10",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Huawei",
+    "device_name": "Mate 50 Pro"
+  },
+  "573025570488": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.9.1",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573025571210": {
+    "device_model": "CPH2525",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "en",
+    "system_lang_code": "en-US",
+    "brand": "Oppo",
+    "device_name": "Find X6 Pro"
+  },
+  "573025571211": {
+    "device_model": "RMX3371",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Realme",
+    "device_name": "GT 2 Pro"
+  },
+  "573025571538": {
+    "device_model": "OCE-AN10",
+    "system_version": "Android 13",
+    "app_version": "10.11.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Huawei",
+    "device_name": "Mate 50 Pro"
+  },
+  "573025571583": {
+    "device_model": "CPH2449",
+    "system_version": "Android 14",
+    "app_version": "10.14.0",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 11"
+  },
+  "573025571587": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.13.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573025571599": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.8.0",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573025571607": {
+    "device_model": "RMX3371",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "it",
+    "system_lang_code": "it-IT",
+    "brand": "Realme",
+    "device_name": "GT 2 Pro"
+  },
+  "573025571614": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.9.0",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573025571635": {
+    "device_model": "A065",
+    "system_version": "Android 14",
+    "app_version": "10.11.1",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Nothing",
+    "device_name": "Phone (2)"
+  },
+  "573025571646": {
+    "device_model": "22101316G",
+    "system_version": "Android 13",
+    "app_version": "10.9.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12 Pro"
+  },
+  "573025751710": {
+    "device_model": "Pixel 6",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Google",
+    "device_name": "Pixel 6"
+  },
+  "573025752774": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573025752780": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573025756186": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573025773424": {
+    "device_model": "CPH2449",
+    "system_version": "Android 14",
+    "app_version": "10.8.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 11"
+  },
+  "573025773427": {
+    "device_model": "2211133G",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13"
+  },
+  "573025775264": {
+    "device_model": "AC2003",
+    "system_version": "Android 13",
+    "app_version": "10.9.2",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord"
+  },
+  "573025782417": {
+    "device_model": "Pixel 6",
+    "system_version": "Android 14",
+    "app_version": "10.9.0",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Google",
+    "device_name": "Pixel 6"
+  },
+  "573025782444": {
+    "device_model": "CPH2413",
+    "system_version": "Android 13",
+    "app_version": "10.8.1",
+    "lang_code": "en",
+    "system_lang_code": "en-US",
+    "brand": "Oppo",
+    "device_name": "Reno 8 Pro"
+  },
+  "573025782497": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.9.2",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573025785439": {
+    "device_model": "NOH-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.6.1",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Huawei",
+    "device_name": "Mate 40 Pro"
+  },
+  "573025797254": {
+    "device_model": "SM-S908B",
+    "system_version": "Android 13",
+    "app_version": "10.9.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22 Ultra"
+  },
+  "573025797431": {
+    "device_model": "CPH2387",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord CE 3"
+  },
+  "573025798748": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.14.1",
+    "lang_code": "pl",
+    "system_lang_code": "pl-PL",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573025798759": {
+    "device_model": "OCE-AN10",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Huawei",
+    "device_name": "Mate 50 Pro"
+  },
+  "573025800221": {
+    "device_model": "SM-A536B",
+    "system_version": "Android 13",
+    "app_version": "10.11.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy A53"
+  },
+  "573025801834": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "pl",
+    "system_lang_code": "pl-PL",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573025801850": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573025804364": {
+    "device_model": "Pixel 7 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Google",
+    "device_name": "Pixel 7 Pro"
+  },
+  "573025804443": {
+    "device_model": "SM-N986B",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Samsung",
+    "device_name": "Galaxy Note 20 Ultra"
+  },
+  "573025804482": {
+    "device_model": "NOH-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.9.1",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Huawei",
+    "device_name": "Mate 40 Pro"
+  },
+  "573025810521": {
+    "device_model": "SM-S901B",
+    "system_version": "Android 14",
+    "app_version": "10.9.2",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22"
+  },
+  "573025810546": {
+    "device_model": "Pixel 7 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Google",
+    "device_name": "Pixel 7 Pro"
+  },
+  "573025812042": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.9.2",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573025812052": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573025845074": {
+    "device_model": "CPH2449",
+    "system_version": "Android 14",
+    "app_version": "10.6.2",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 11"
+  },
+  "573025846522": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.7.0",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573025860071": {
+    "device_model": "22021211RG",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Xiaomi",
+    "device_name": "Poco F4"
+  },
+  "573025866157": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.14.0",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573026739084": {
+    "device_model": "SM-G991B",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "en",
+    "system_lang_code": "en-US",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21"
+  },
+  "573026835713": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.7.1",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573027028407": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.9.0",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573027029892": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573027914622": {
+    "device_model": "SM-A546B",
+    "system_version": "Android 14",
+    "app_version": "10.8.1",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Samsung",
+    "device_name": "Galaxy A54"
+  },
+  "573028103118": {
+    "device_model": "23021RAA2Y",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12"
+  },
+  "573028104980": {
+    "device_model": "ASUS_AI2201",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Asus",
+    "device_name": "ROG Phone 6"
+  },
+  "573028104982": {
+    "device_model": "Pixel 8",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Google",
+    "device_name": "Pixel 8"
+  },
+  "573028127767": {
+    "device_model": "2107113SG",
+    "system_version": "Android 12",
+    "app_version": "10.10.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Xiaomi",
+    "device_name": "Poco X3 GT"
+  },
+  "573028127784": {
+    "device_model": "SM-N986B",
+    "system_version": "Android 13",
+    "app_version": "10.8.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Samsung",
+    "device_name": "Galaxy Note 20 Ultra"
+  },
+  "573028133115": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.10.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573028133200": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.8.0",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573028133206": {
+    "device_model": "Pixel 8 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Google",
+    "device_name": "Pixel 8 Pro"
+  },
+  "573028136604": {
+    "device_model": "NOH-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.6.2",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Huawei",
+    "device_name": "Mate 40 Pro"
+  },
+  "573028136755": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573028136766": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573028209968": {
+    "device_model": "ASUS_AI2201",
+    "system_version": "Android 13",
+    "app_version": "10.7.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Asus",
+    "device_name": "ROG Phone 6"
+  },
+  "573028224864": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.14.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573028224894": {
+    "device_model": "LE2123",
+    "system_version": "Android 13",
+    "app_version": "10.12.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 9 Pro"
+  },
+  "573028224895": {
+    "device_model": "Pixel 7 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.7.1",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Google",
+    "device_name": "Pixel 7 Pro"
+  },
+  "573028224896": {
+    "device_model": "CPH2449",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 11"
+  },
+  "573028224899": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573028224902": {
+    "device_model": "Pixel 6 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.6.2",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Google",
+    "device_name": "Pixel 6 Pro"
+  },
+  "573028224904": {
+    "device_model": "SM-A536B",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Samsung",
+    "device_name": "Galaxy A53"
+  },
+  "573028225161": {
+    "device_model": "Pixel 6",
+    "system_version": "Android 14",
+    "app_version": "10.11.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Google",
+    "device_name": "Pixel 6"
+  },
+  "573028225303": {
+    "device_model": "V2324",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Vivo",
+    "device_name": "X90 Pro"
+  },
+  "573028225320": {
+    "device_model": "2211133G",
+    "system_version": "Android 14",
+    "app_version": "10.6.2",
+    "lang_code": "th",
+    "system_lang_code": "th-TH",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13"
+  },
+  "573028225330": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573028225333": {
+    "device_model": "V2145",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Vivo",
+    "device_name": "X70 Pro+"
+  },
+  "573028225342": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573028225432": {
+    "device_model": "SM-S918B",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S23 Ultra"
+  },
+  "573028225436": {
+    "device_model": "XT2301-4",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "en",
+    "system_lang_code": "en-US",
+    "brand": "Motorola",
+    "device_name": "Edge 40 Pro"
+  },
+  "573028225443": {
+    "device_model": "SM-S908B",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22 Ultra"
+  },
+  "573028225450": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.9.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573028225452": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.14.0",
+    "lang_code": "es",
+    "system_lang_code": "es-MX",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573028225454": {
+    "device_model": "OCE-AN10",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Huawei",
+    "device_name": "Mate 50 Pro"
+  },
+  "573028225532": {
+    "device_model": "Pixel 6 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.11.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Google",
+    "device_name": "Pixel 6 Pro"
+  },
+  "573028225618": {
+    "device_model": "Pixel 8 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Google",
+    "device_name": "Pixel 8 Pro"
+  },
+  "573028225639": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.11.0",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573028225764": {
+    "device_model": "ASUS_AI2301",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Asus",
+    "device_name": "ROG Phone 7"
+  },
+  "573028225768": {
+    "device_model": "ASUS_AI2301",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Asus",
+    "device_name": "ROG Phone 7"
+  },
+  "573028225780": {
+    "device_model": "Pixel 6 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.12.1",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Google",
+    "device_name": "Pixel 6 Pro"
+  },
+  "573028226116": {
+    "device_model": "SM-A536B",
+    "system_version": "Android 13",
+    "app_version": "10.10.1",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Samsung",
+    "device_name": "Galaxy A53"
+  },
+  "573028226118": {
+    "device_model": "SM-S918B",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Samsung",
+    "device_name": "Galaxy S23 Ultra"
+  },
+  "573028226143": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573028226234": {
+    "device_model": "Pixel 6 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Google",
+    "device_name": "Pixel 6 Pro"
+  },
+  "573028226240": {
+    "device_model": "SM-S901B",
+    "system_version": "Android 14",
+    "app_version": "10.14.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22"
+  },
+  "573028226242": {
+    "device_model": "Pixel 8",
+    "system_version": "Android 14",
+    "app_version": "10.12.0",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Google",
+    "device_name": "Pixel 8"
+  },
+  "573028226254": {
+    "device_model": "2211133G",
+    "system_version": "Android 14",
+    "app_version": "10.13.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13"
+  },
+  "573028226301": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573028226304": {
+    "device_model": "22101316G",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12 Pro"
+  },
+  "573028226363": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.14.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573028226367": {
+    "device_model": "XT2301-4",
+    "system_version": "Android 14",
+    "app_version": "10.7.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Motorola",
+    "device_name": "Edge 40 Pro"
+  },
+  "573028226387": {
+    "device_model": "OCE-AN10",
+    "system_version": "Android 13",
+    "app_version": "10.7.1",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Huawei",
+    "device_name": "Mate 50 Pro"
+  },
+  "573028226893": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.13.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573028227515": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573028227720": {
+    "device_model": "SM-F936B",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Samsung",
+    "device_name": "Galaxy Z Fold4"
+  },
+  "573028227810": {
+    "device_model": "2107113SG",
+    "system_version": "Android 12",
+    "app_version": "10.12.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Xiaomi",
+    "device_name": "Poco X3 GT"
+  },
+  "573028227822": {
+    "device_model": "CPH2387",
+    "system_version": "Android 13",
+    "app_version": "10.6.2",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord CE 3"
+  },
+  "573028227830": {
+    "device_model": "V2324",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Vivo",
+    "device_name": "X90 Pro"
+  },
+  "573028227858": {
+    "device_model": "V2219",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Vivo",
+    "device_name": "X80 Pro"
+  },
+  "573028227861": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573028227915": {
+    "device_model": "SM-S901B",
+    "system_version": "Android 14",
+    "app_version": "10.9.1",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22"
+  },
+  "573028229364": {
+    "device_model": "RMX3563",
+    "system_version": "Android 13",
+    "app_version": "10.10.1",
+    "lang_code": "it",
+    "system_lang_code": "it-IT",
+    "brand": "Realme",
+    "device_name": "10 Pro+"
+  },
+  "573028230704": {
+    "device_model": "2201123G",
+    "system_version": "Android 13",
+    "app_version": "10.14.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 12"
+  },
+  "573028230709": {
+    "device_model": "SM-A546B",
+    "system_version": "Android 14",
+    "app_version": "10.13.0",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Samsung",
+    "device_name": "Galaxy A54"
+  },
+  "573028230855": {
+    "device_model": "A065",
+    "system_version": "Android 14",
+    "app_version": "10.14.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Nothing",
+    "device_name": "Phone (2)"
+  },
+  "573028230857": {
+    "device_model": "LE2123",
+    "system_version": "Android 13",
+    "app_version": "10.9.0",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 9 Pro"
+  },
+  "573028230867": {
+    "device_model": "Pixel 7 Pro",
+    "system_version": "Android 14",
+    "app_version": "10.14.0",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Google",
+    "device_name": "Pixel 7 Pro"
+  },
+  "573028230877": {
+    "device_model": "ASUS_AI2301",
+    "system_version": "Android 14",
+    "app_version": "10.14.1",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Asus",
+    "device_name": "ROG Phone 7"
+  },
+  "573028230899": {
+    "device_model": "Pixel 8",
+    "system_version": "Android 14",
+    "app_version": "10.6.1",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Google",
+    "device_name": "Pixel 8"
+  },
+  "573028364387": {
+    "device_model": "22021211RG",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "tr",
+    "system_lang_code": "tr-TR",
+    "brand": "Xiaomi",
+    "device_name": "Poco F4"
+  },
+  "573028557749": {
+    "device_model": "CPH2387",
+    "system_version": "Android 13",
+    "app_version": "10.12.0",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord CE 3"
+  },
+  "573028557809": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.12.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  },
+  "573028557928": {
+    "device_model": "SM-S908B",
+    "system_version": "Android 13",
+    "app_version": "10.10.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22 Ultra"
+  },
+  "573028558000": {
+    "device_model": "RMX3371",
+    "system_version": "Android 13",
+    "app_version": "10.13.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Realme",
+    "device_name": "GT 2 Pro"
+  },
+  "573028558050": {
+    "device_model": "V2219",
+    "system_version": "Android 13",
+    "app_version": "10.11.0",
+    "lang_code": "en",
+    "system_lang_code": "en-GB",
+    "brand": "Vivo",
+    "device_name": "X80 Pro"
+  },
+  "573028558059": {
+    "device_model": "A063",
+    "system_version": "Android 14",
+    "app_version": "10.9.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Nothing",
+    "device_name": "Phone (1)"
+  },
+  "573028558076": {
+    "device_model": "CPH2387",
+    "system_version": "Android 13",
+    "app_version": "10.13.0",
+    "lang_code": "it",
+    "system_lang_code": "it-IT",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord CE 3"
+  },
+  "573028560344": {
+    "device_model": "CPH2305",
+    "system_version": "Android 13",
+    "app_version": "10.14.1",
+    "lang_code": "zh",
+    "system_lang_code": "zh-CN",
+    "brand": "Oppo",
+    "device_name": "Find X5 Pro"
+  },
+  "573028560464": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.11.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573028560470": {
+    "device_model": "2211133G",
+    "system_version": "Android 14",
+    "app_version": "10.10.1",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13"
+  },
+  "573028686007": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.7.1",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573028686355": {
+    "device_model": "V2324",
+    "system_version": "Android 14",
+    "app_version": "10.6.2",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Vivo",
+    "device_name": "X90 Pro"
+  },
+  "573028686371": {
+    "device_model": "2107113SG",
+    "system_version": "Android 12",
+    "app_version": "10.7.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Xiaomi",
+    "device_name": "Poco X3 GT"
+  },
+  "573028686387": {
+    "device_model": "SM-S901B",
+    "system_version": "Android 14",
+    "app_version": "10.8.1",
+    "lang_code": "es",
+    "system_lang_code": "es-ES",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22"
+  },
+  "573028686432": {
+    "device_model": "23021RAA2Y",
+    "system_version": "Android 13",
+    "app_version": "10.6.1",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 12"
+  },
+  "573028686543": {
+    "device_model": "ELS-NX9",
+    "system_version": "Android 12",
+    "app_version": "10.11.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Huawei",
+    "device_name": "P40 Pro"
+  },
+  "573028686692": {
+    "device_model": "Pixel 7",
+    "system_version": "Android 14",
+    "app_version": "10.6.2",
+    "lang_code": "fr",
+    "system_lang_code": "fr-FR",
+    "brand": "Google",
+    "device_name": "Pixel 7"
+  },
+  "573042148330": {
+    "device_model": "22021211RG",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Xiaomi",
+    "device_name": "Poco F4"
+  },
+  "573042199599": {
+    "device_model": "RMX3371",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Realme",
+    "device_name": "GT 2 Pro"
+  },
+  "573042311820": {
+    "device_model": "SM-A536B",
+    "system_version": "Android 13",
+    "app_version": "10.9.2",
+    "lang_code": "ko",
+    "system_lang_code": "ko-KR",
+    "brand": "Samsung",
+    "device_name": "Galaxy A53"
+  },
+  "573042311864": {
+    "device_model": "V2219",
+    "system_version": "Android 13",
+    "app_version": "10.13.1",
+    "lang_code": "uk",
+    "system_lang_code": "uk-UA",
+    "brand": "Vivo",
+    "device_name": "X80 Pro"
+  },
+  "573042311873": {
+    "device_model": "SM-F936B",
+    "system_version": "Android 14",
+    "app_version": "10.7.0",
+    "lang_code": "id",
+    "system_lang_code": "id-ID",
+    "brand": "Samsung",
+    "device_name": "Galaxy Z Fold4"
+  },
+  "573042311874": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.9.0",
+    "lang_code": "pt",
+    "system_lang_code": "pt-BR",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573042311878": {
+    "device_model": "SM-G998B",
+    "system_version": "Android 13",
+    "app_version": "10.14.0",
+    "lang_code": "hi",
+    "system_lang_code": "hi-IN",
+    "brand": "Samsung",
+    "device_name": "Galaxy S21 Ultra"
+  },
+  "573042311882": {
+    "device_model": "SM-A546B",
+    "system_version": "Android 14",
+    "app_version": "10.13.1",
+    "lang_code": "ja",
+    "system_lang_code": "ja-JP",
+    "brand": "Samsung",
+    "device_name": "Galaxy A54"
+  },
+  "573042311887": {
+    "device_model": "23049PCD8G",
+    "system_version": "Android 14",
+    "app_version": "10.12.0",
+    "lang_code": "pl",
+    "system_lang_code": "pl-PL",
+    "brand": "Xiaomi",
+    "device_name": "Xiaomi 13 Ultra"
+  },
+  "573042312116": {
+    "device_model": "AC2003",
+    "system_version": "Android 13",
+    "app_version": "10.10.1",
+    "lang_code": "en",
+    "system_lang_code": "en-US",
+    "brand": "OnePlus",
+    "device_name": "OnePlus Nord"
+  },
+  "573042312130": {
+    "device_model": "NE2213",
+    "system_version": "Android 14",
+    "app_version": "10.14.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "OnePlus",
+    "device_name": "OnePlus 10 Pro"
+  },
+  "573042312138": {
+    "device_model": "SM-S901B",
+    "system_version": "Android 14",
+    "app_version": "10.8.0",
+    "lang_code": "de",
+    "system_lang_code": "de-DE",
+    "brand": "Samsung",
+    "device_name": "Galaxy S22"
+  },
+  "573042312139": {
+    "device_model": "M2012K11AG",
+    "system_version": "Android 12",
+    "app_version": "10.13.0",
+    "lang_code": "ar",
+    "system_lang_code": "ar-SA",
+    "brand": "Xiaomi",
+    "device_name": "Redmi Note 9 Pro"
+  },
+  "573042312160": {
+    "device_model": "CPH2305",
+    "system_version": "Android 13",
+    "app_version": "10.8.0",
+    "lang_code": "vi",
+    "system_lang_code": "vi-VN",
+    "brand": "Oppo",
+    "device_name": "Find X5 Pro"
+  },
+  "573042312178": {
+    "device_model": "SM-G780F",
+    "system_version": "Android 13",
+    "app_version": "10.9.2",
+    "lang_code": "ru",
+    "system_lang_code": "ru-RU",
+    "brand": "Samsung",
+    "device_name": "Galaxy S20 FE"
+  }
+}
