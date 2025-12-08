@@ -9,7 +9,7 @@ def patched_connect(*args, **kwargs):
     return original_connect(*args, **kwargs)
 sqlite3.connect = patched_connect
 
-from fastapi import FastAPI, Request, Form, HTTPException
+from fastapi import FastAPI, Request, Form, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -194,13 +194,35 @@ async def ready():
 @app.get("/api/v1/status")
 async def api_status():
     """Статус системы"""
-    # Рекурсивный поиск всех .json файлов в подпапках
-    sessions_count = 0
-    if SESSIONS_DIR.exists():
-        sessions_count = len(list(SESSIONS_DIR.rglob("*.json")))
+    global _sessions_count_cache, _sessions_count_cache_time
+    from time import time
     
+    # Использовать кэш для подсчёта сессий
+    if _sessions_count_cache is not None and _sessions_count_cache_time is not None:
+        if time() - _sessions_count_cache_time < SESSIONS_COUNT_CACHE_TTL:
+            sessions_count = _sessions_count_cache
+        else:
+            # Обновить кэш
+            if SESSIONS_DIR.exists():
+                sessions_count = len(list(SESSIONS_DIR.rglob("*.json")))
+            else:
+                sessions_count = 0
+            _sessions_count_cache = sessions_count
+            _sessions_count_cache_time = time()
+    else:
+        # Первый раз или кэш пуст
+        if SESSIONS_DIR.exists():
+            sessions_count = len(list(SESSIONS_DIR.rglob("*.json")))
+        else:
+            sessions_count = 0
+        _sessions_count_cache = sessions_count
+        _sessions_count_cache_time = time()
+    
+    # Использовать кэш для групп
     groups_count = 0
-    if GROUPS_FILE.exists():
+    if _groups_cache is not None:
+        groups_count = _groups_cache.get('total', 0)
+    elif GROUPS_FILE.exists():
         try:
             groups_data = json.loads(GROUPS_FILE.read_text())
             if isinstance(groups_data, list):
@@ -221,26 +243,76 @@ async def api_status():
     }
 
 
+# Кэш для сессий (обновляется каждые 30 секунд)
+_sessions_cache = None
+_sessions_cache_time = None
+SESSIONS_CACHE_TTL = 30  # секунд
+
+def clear_sessions_cache():
+    """Очистить кэш сессий"""
+    global _sessions_cache, _sessions_cache_time
+    _sessions_cache = None
+    _sessions_cache_time = None
+
+# Кэш для групп (обновляется каждые 10 секунд)
+_groups_cache = None
+_groups_cache_time = None
+GROUPS_CACHE_TTL = 10  # секунд
+
+def clear_groups_cache():
+    """Очистить кэш групп"""
+    global _groups_cache, _groups_cache_time
+    _groups_cache = None
+    _groups_cache_time = None
+
+# Кэш для подсчёта сессий (обновляется каждые 60 секунд)
+_sessions_count_cache = None
+_sessions_count_cache_time = None
+SESSIONS_COUNT_CACHE_TTL = 60  # секунд
+
 @app.get("/api/v1/sessions", response_class=JSONResponse)
 async def get_sessions():
-    """Получить список всех сессий (включая подпапки)"""
+    """Получить список всех сессий (включая подпапки) - с кэшированием"""
+    global _sessions_cache, _sessions_cache_time
+    
+    from time import time
+    
+    # Проверить кэш
+    if _sessions_cache is not None and _sessions_cache_time is not None:
+        if time() - _sessions_cache_time < SESSIONS_CACHE_TTL:
+            return _sessions_cache
+    
     if not SESSIONS_DIR.exists():
-        return {"sessions": []}
+        result = {"sessions": [], "total": 0}
+        _sessions_cache = result
+        _sessions_cache_time = time()
+        return result
     
     sessions = []
     # Рекурсивный поиск всех .json файлов в подпапках
-    for json_file in SESSIONS_DIR.rglob("*.json"):
+    # Используем list() для ускорения
+    json_files = list(SESSIONS_DIR.rglob("*.json"))
+    
+    # Обрабатываем файлы пакетами для оптимизации
+    for json_file in json_files:
         try:
+            # Быстрая проверка существования без чтения всего файла
+            if not json_file.exists():
+                continue
+            
+            # Читаем только если файл небольшой (быстрая проверка)
+            file_size = json_file.stat().st_size
+            if file_size > 1024 * 1024:  # Пропускаем файлы > 1MB
+                continue
+            
             with open(json_file, 'r', encoding='utf-8') as f:
                 try:
                     data = json.load(f)
-                except json.JSONDecodeError as je:
+                except json.JSONDecodeError:
                     # Если JSON невалидный, пропускаем файл
-                    print(f"WARNING: Невалидный JSON в {json_file}: {je}")
                     continue
                 
                 # Поддержка разных форматов session файлов
-                # Формат 1: Telethon (phone_number, account_id, session_string)
                 phone = data.get('phone_number') or data.get('phone')
                 account_id = data.get('account_id') or data.get('id')
                 
@@ -256,7 +328,7 @@ async def get_sessions():
                 # Путь относительно SESSIONS_DIR
                 relative_path = json_file.relative_to(SESSIONS_DIR)
                 
-                # Проверить наличие session_string или .session файла
+                # Проверить наличие session_string или .session файла (быстрая проверка)
                 has_session_string = bool(data.get('session_string'))
                 session_file = json_file.parent / f"{json_file.stem}.session"
                 has_session_file = session_file.exists()
@@ -265,7 +337,6 @@ async def get_sessions():
                     'phone': str(phone),
                     'filename': json_file.name,
                     'path': str(relative_path),
-                    'full_path': str(json_file),
                     'has_session': has_session_string or has_session_file,
                     'has_session_string': has_session_string,
                     'has_session_file': has_session_file,
@@ -273,10 +344,10 @@ async def get_sessions():
                     'account_id': str(account_id),
                     'first_name': data.get('first_name'),
                     'username': data.get('username'),
-                    'twoFA': data.get('twoFA') or data.get('2fa') or data.get('password')
+                    'twoFA': bool(data.get('twoFA') or data.get('2fa') or data.get('password'))
                 })
-        except Exception as e:
-            # Если ошибка чтения файла, попробуем по имени файла/папки
+        except Exception:
+            # Если ошибка чтения файла, пробуем по имени файла/папки
             try:
                 folder_name = json_file.parent.name if json_file.parent != SESSIONS_DIR else json_file.stem
                 phone = folder_name if folder_name.isdigit() else json_file.stem
@@ -290,25 +361,38 @@ async def get_sessions():
                     'phone': phone,
                     'filename': json_file.name,
                     'path': str(relative_path),
-                    'full_path': str(json_file),
                     'has_session': has_session_file,
                     'has_session_string': False,
                     'has_session_file': has_session_file,
                     'created_at': 'unknown',
                     'account_id': phone
                 })
-            except Exception as e2:
-                print(f"WARNING: Ошибка обработки {json_file}: {e2}")
+            except:
                 continue
     
-    return {"sessions": sessions, "total": len(sessions)}
+    result = {"sessions": sessions, "total": len(sessions)}
+    _sessions_cache = result
+    _sessions_cache_time = time()
+    return result
 
 
 @app.get("/api/v1/groups", response_class=JSONResponse)
 async def get_groups():
-    """Получить список групп"""
+    """Получить список групп - с кэшированием"""
+    global _groups_cache, _groups_cache_time
+    
+    from time import time
+    
+    # Проверить кэш
+    if _groups_cache is not None and _groups_cache_time is not None:
+        if time() - _groups_cache_time < GROUPS_CACHE_TTL:
+            return _groups_cache
+    
     if not GROUPS_FILE.exists():
-        return {"groups": []}
+        result = {"groups": [], "total": 0}
+        _groups_cache = result
+        _groups_cache_time = time()
+        return result
     
     try:
         with open(GROUPS_FILE, 'r', encoding='utf-8') as f:
@@ -319,24 +403,181 @@ async def get_groups():
                     groups = groups.get('groups', [])
                 if not isinstance(groups, list):
                     groups = []
-                return {"groups": groups, "total": len(groups)}
+                result = {"groups": groups, "total": len(groups)}
+                _groups_cache = result
+                _groups_cache_time = time()
+                return result
             except json.JSONDecodeError as e:
                 print(f"WARNING: Ошибка парсинга groups.json: {e}")
-                return {"groups": [], "total": 0, "error": f"Invalid JSON: {str(e)}"}
+                result = {"groups": [], "total": 0, "error": f"Invalid JSON: {str(e)}"}
+                _groups_cache = result
+                _groups_cache_time = time()
+                return result
     except Exception as e:
         print(f"⚠️ Ошибка чтения groups.json: {e}")
-        return {"groups": [], "total": 0, "error": str(e)}
+        result = {"groups": [], "total": 0, "error": str(e)}
+        _groups_cache = result
+        _groups_cache_time = time()
+        return result
 
 
 @app.delete("/api/v1/groups/all", response_class=JSONResponse)
 async def delete_all_groups():
-    """Удалить все группы"""
+    """Удалить все группы (включая Telegram группы)"""
     try:
+        deleted_in_tg = 0
+        errors = []
+        
         if GROUPS_FILE.exists():
-            # Сохранить пустой файл
+            # Загрузить группы перед удалением
+            with open(GROUPS_FILE, 'r', encoding='utf-8') as f:
+                groups_data = json.load(f)
+            
+            groups = groups_data.get("groups", [])
+            
+            # Удалить каждую группу в Telegram
+            from telethon import TelegramClient
+            from telethon.tl.functions.messages import DeleteChatRequest
+            from telethon.tl.functions.channels import LeaveChannelRequest
+            
+            for group in groups:
+                if not group.get("telegram_group_id"):
+                    continue
+                
+                try:
+                    admin = group.get("admin", {})
+                    admin_phone = admin.get("phone")
+                    
+                    if not admin_phone:
+                        continue
+                    
+                    admin_session = SESSIONS_DIR / admin_phone / f"{admin_phone}.session"
+                    if not admin_session.exists():
+                        add_log(f"⚠️ Session не найден для админа {admin_phone}, пропускаю группу {group.get('title', '?')}", "warning")
+                        continue
+                    
+                    # Загрузить данные админа
+                    admin_json = SESSIONS_DIR / admin_phone / f"{admin_phone}.json"
+                    app_id = 2040
+                    app_hash = "b18441a1ff607e10a989891a5462e627"
+                    
+                    if admin_json.exists():
+                        with open(admin_json, 'r') as f:
+                            data = json.load(f)
+                            app_id = data.get("app_id", app_id)
+                            app_hash = data.get("app_hash", app_hash)
+                    
+                    # Создать клиент админа
+                    admin_client = await create_telegram_client(
+                        session_path=str(admin_session),
+                        api_id=int(app_id),
+                        api_hash=app_hash,
+                        phone=admin_phone,
+                        use_proxy=True,
+                        use_device_info=True
+                    )
+                    
+                    try:
+                        await admin_client.connect()
+                        
+                        if not await admin_client.is_user_authorized():
+                            add_log(f"⚠️ Админ {admin_phone} не авторизован, пропускаю", "warning")
+                            continue
+                        
+                        tg_id = group["telegram_group_id"]
+                        group_title = group.get("title", "?")
+                        
+                        # Преобразовать ID в число если это строка
+                        if isinstance(tg_id, str):
+                            try:
+                                tg_id = int(tg_id)
+                            except:
+                                add_log(f"⚠️ Неверный формат ID группы {group_title}: {tg_id}", "warning")
+                                continue
+                        
+                        # Получить entity группы
+                        try:
+                            entity = await admin_client.get_entity(tg_id)
+                            
+                            # Проверить тип: Chat (обычная группа) или Channel (супергруппа/канал)
+                            from telethon.tl.types import Chat, Channel
+                            
+                            if isinstance(entity, Chat):
+                                # Обычная группа - удаляем через DeleteChatRequest
+                                # Для DeleteChatRequest нужен положительный ID (без знака минус)
+                                chat_id_positive = abs(int(tg_id))
+                                try:
+                                    await admin_client(DeleteChatRequest(chat_id=chat_id_positive))
+                                    add_log(f"✅ Удалена группа в TG: {group_title} (ID: {tg_id})", "success")
+                                    deleted_in_tg += 1
+                                except Exception as e1:
+                                    # Если не получилось, попробуем через диалоги
+                                    try:
+                                        dialogs = await admin_client.get_dialogs(limit=100)
+                                        for d in dialogs:
+                                            if d.id == tg_id:
+                                                # Попробуем удалить через entity диалога
+                                                await admin_client.delete_dialog(d.entity)
+                                                add_log(f"✅ Удалена группа в TG (через диалог): {group_title}", "success")
+                                                deleted_in_tg += 1
+                                                break
+                                        else:
+                                            # Группа не найдена в диалогах - возможно уже удалена
+                                            add_log(f"ℹ️ Группа {group_title} не найдена (возможно уже удалена)", "info")
+                                    except Exception as e2:
+                                        add_log(f"⚠️ Не удалось удалить Chat {group_title}: {str(e2)[:50]}", "warning")
+                                        errors.append(f"{group_title}: {str(e2)[:50]}")
+                            elif isinstance(entity, Channel):
+                                # Супергруппа/канал - покидаем через LeaveChannelRequest
+                                try:
+                                    await admin_client(LeaveChannelRequest(channel=entity))
+                                    add_log(f"✅ Покинута группа в TG: {group_title} (ID: {tg_id})", "success")
+                                    deleted_in_tg += 1
+                                except Exception as e2:
+                                    add_log(f"⚠️ Не удалось покинуть Channel {group_title}: {str(e2)[:50]}", "warning")
+                                    errors.append(f"{group_title}: {str(e2)[:50]}")
+                            else:
+                                add_log(f"⚠️ Неизвестный тип группы {group_title}: {type(entity).__name__}", "warning")
+                                errors.append(f"{group_title}: Unknown type")
+                                
+                        except Exception as e:
+                            error_msg = str(e)
+                            # Если группа не найдена - это нормально, возможно уже удалена
+                            if "not found" in error_msg.lower() or "invalid" in error_msg.lower():
+                                add_log(f"ℹ️ Группа {group_title} не найдена (возможно уже удалена)", "info")
+                            else:
+                                add_log(f"⚠️ Не удалось получить entity группы {group_title}: {error_msg[:50]}", "warning")
+                                errors.append(f"{group_title}: {error_msg[:50]}")
+                        
+                        await asyncio.sleep(1)  # Пауза между удалениями
+                        
+                    finally:
+                        try:
+                            await admin_client.disconnect()
+                        except:
+                            pass
+                            
+                except Exception as e:
+                    group_title = group.get("title", "?")
+                    add_log(f"⚠️ Ошибка при удалении группы {group_title}: {str(e)[:50]}", "warning")
+                    errors.append(f"{group_title}: {str(e)[:50]}")
+            
+            # Теперь очистить файл
             with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
                 json.dump({"groups": [], "schedule": {"enabled": False, "interval_minutes": 60}}, f, indent=2)
-            return {"status": "success", "message": "Все группы удалены"}
+            clear_groups_cache()
+            
+            message = f"Удалено {deleted_in_tg} групп в Telegram"
+            if errors:
+                message += f", ошибок: {len(errors)}"
+            
+            return {
+                "status": "success",
+                "message": message,
+                "deleted_in_telegram": deleted_in_tg,
+                "errors": errors
+            }
+        
         return {"status": "success", "message": "Файл групп не существует"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -444,10 +685,6 @@ async def groups_page(request: Request):
     return templates.TemplateResponse("groups.html", {"request": request})
 
 
-@app.get("/jobs", response_class=HTMLResponse)
-async def jobs_page(request: Request):
-    """Страница управления задачами"""
-    return templates.TemplateResponse("jobs.html", {"request": request})
 
 
 class GetCodeRequest(BaseModel):
@@ -738,7 +975,14 @@ async def auto_verify_code(phone_number: str, code: str, phone_code_hash: str, a
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, indent=2, ensure_ascii=False)
             
+            clear_sessions_cache()  # Очистить кэш при обновлении сессии
             print(f"Session автоматически создан для {phone_number}: {json_file}")
+            
+            # Сгенерировать device info
+            try:
+                device_gen.generate_unique_device(phone_filename)
+            except Exception as pe:
+                print(f"[Device] Не удалось создать device: {pe}")
             
         finally:
             await client.disconnect()
@@ -1153,6 +1397,14 @@ async def verify_code(request: VerifyCodeRequest):
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, indent=2, ensure_ascii=False)
             
+            clear_sessions_cache()  # Очистить кэш при обновлении сессии
+            
+            # Сгенерировать device info
+            try:
+                device_gen.generate_unique_device(phone_filename)
+            except Exception as pe:
+                print(f"[Device] Ошибка: {pe}")
+            
             return {
                 "status": "success",
                 "phone_number": request.phone_number,
@@ -1300,6 +1552,8 @@ async def verify_code_direct(request: VerifyCodeDirectRequest):
             json_file = session_folder / f"{phone_filename}.json"
             with open(json_file, 'w', encoding='utf-8') as f:
                 json.dump(session_data, f, indent=2, ensure_ascii=False)
+            
+            clear_sessions_cache()  # Очистить кэш при обновлении сессии
             
             return {
                 "status": "success",
@@ -1746,6 +2000,7 @@ async def auto_create_groups(request: AutoGroupRequest):
         
         with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
             json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+        clear_groups_cache()
         
         # Создать реальные Telegram группы если включено
         telegram_created = 0
@@ -1772,7 +2027,15 @@ async def auto_create_groups(request: AutoGroupRequest):
                     app_id = admin.get("app_id") or int(os.getenv('TELEGRAM_API_ID', 2040))
                     app_hash = admin.get("app_hash") or os.getenv('TELEGRAM_API_HASH', "b18441a1ff607e10a989891a5462e627")
                     
-                    admin_client = TelegramClient(str(admin_session), app_id, app_hash)
+                    # Используем прокси!
+                    admin_client = await create_telegram_client(
+                        session_path=str(admin_session),
+                        api_id=app_id,
+                        api_hash=app_hash,
+                        phone=admin_phone,
+                        use_proxy=True,
+                        use_device_info=True
+                    )
                     await admin_client.connect()
                     
                     if not await admin_client.is_user_authorized():
@@ -1782,7 +2045,45 @@ async def auto_create_groups(request: AutoGroupRequest):
                     
                     add_log(f"Админ подключен: {admin_phone}", "success")
                     
-                    # Сначала добавить контакты
+                    # ШАГ 1: Сначала отправляем сообщения (это автоматически создаст контакты)
+                    # Админ отправляет сообщения всем участникам
+                    add_log(f"Админ отправляет приветствия участникам...", "info")
+                    sent_messages = 0
+                    for member in group["members"]:
+                        try:
+                            member_phone = member["phone"]
+                            # Попробовать отправить сообщение (даже если контакт не добавлен)
+                            try:
+                                member_entity = await admin_client.get_entity(f"+{member_phone}")
+                                await admin_client.send_message(member_entity, f"👋 Привет! Создаю группу '{group['title']}', добавлю тебя туда.")
+                                sent_messages += 1
+                                add_log(f"Админ отправил сообщение {member_phone}", "success")
+                                await asyncio.sleep(2)  # Пауза между сообщениями
+                            except:
+                                # Если не получилось, попробуем импортировать контакт сначала
+                                try:
+                                    contact = InputPhoneContact(
+                                        client_id=0,
+                                        phone=f"+{member_phone}",
+                                        first_name=member.get("first_name", "User"),
+                                        last_name=member.get("last_name", "")
+                                    )
+                                    result = await admin_client(ImportContactsRequest([contact]))
+                                    if result.users:
+                                        member_entity = await admin_client.get_entity(f"+{member_phone}")
+                                        await admin_client.send_message(member_entity, f"👋 Привет! Создаю группу '{group['title']}', добавлю тебя туда.")
+                                        sent_messages += 1
+                                        add_log(f"Админ добавил и отправил сообщение {member_phone}", "success")
+                                        await asyncio.sleep(2)
+                                except Exception as e:
+                                    add_log(f"Не удалось отправить {member_phone}: {str(e)[:40]}", "warning")
+                        except Exception as e:
+                            add_log(f"Ошибка для {member.get('phone', '?')}: {str(e)[:30]}", "warning")
+                    
+                    add_log(f"Админ отправил {sent_messages} сообщений", "info")
+                    await asyncio.sleep(3)  # Пауза для синхронизации
+                    
+                    # ШАГ 2: Теперь импортируем контакты (для тех, кто не ответил на сообщения)
                     contacts_to_add = []
                     for i, member in enumerate(group["members"]):
                         member_phone = member["phone"]
@@ -1794,80 +2095,247 @@ async def auto_create_groups(request: AutoGroupRequest):
                         ))
                     
                     if contacts_to_add:
-                        add_log(f"Добавляю {len(contacts_to_add)} контактов...", "info")
+                        add_log(f"Админ импортирует {len(contacts_to_add)} контактов...", "info")
                         try:
                             result = await admin_client(ImportContactsRequest(contacts_to_add))
-                            add_log(f"Импортировано: {len(result.users)} контактов", "success")
-                            await asyncio.sleep(2)
+                            add_log(f"Админ импортировал: {len(result.users)} контактов", "success")
+                            await asyncio.sleep(3)  # Увеличена пауза
                         except Exception as e:
-                            add_log(f"Ошибка импорта контактов: {str(e)[:40]}", "error")
+                            add_log(f"Ошибка импорта контактов админом: {str(e)[:40]}", "warning")
                     
-                    # Теперь получить entities
+                    # Теперь каждый участник добавляет админа и других участников
+                    all_phones = [admin_phone] + [m["phone"] for m in group["members"]]
+                    
+                    for member in group["members"]:
+                        member_phone = member["phone"]
+                        member_session = SESSIONS_DIR / member_phone / f"{member_phone}.session"
+                        
+                        if not member_session.exists():
+                            add_log(f"⚠️ Session участника не найден: {member_phone}", "warning")
+                            continue
+                        
+                        try:
+                            # Загрузить данные участника
+                            member_json = SESSIONS_DIR / member_phone / f"{member_phone}.json"
+                            member_app_id = 2040
+                            member_app_hash = "b18441a1ff607e10a989891a5462e627"
+                            
+                            if member_json.exists():
+                                with open(member_json, 'r') as f:
+                                    data = json.load(f)
+                                    member_app_id = data.get("app_id", member_app_id)
+                                    member_app_hash = data.get("app_hash", member_app_hash)
+                            
+                            # Создать клиент участника
+                            member_client = await create_telegram_client(
+                                session_path=str(member_session),
+                                api_id=int(member_app_id),
+                                api_hash=member_app_hash,
+                                phone=member_phone,
+                                use_proxy=True,
+                                use_device_info=True
+                            )
+                            
+                            try:
+                                await member_client.connect()
+                                
+                                if not await member_client.is_user_authorized():
+                                    add_log(f"Участник {member_phone} не авторизован", "warning")
+                                    continue
+                                
+                                # Сначала участник отправляет сообщения (это создаст контакты)
+                                # Участник отправляет приветствие админу
+                                try:
+                                    try:
+                                        admin_entity = await member_client.get_entity(f"+{admin_phone}")
+                                    except:
+                                        # Если админ не найден, импортируем контакт
+                                        contact = InputPhoneContact(
+                                            client_id=0,
+                                            phone=f"+{admin_phone}",
+                                            first_name="Admin",
+                                            last_name=""
+                                        )
+                                        result = await member_client(ImportContactsRequest([contact]))
+                                        if result.users:
+                                            admin_entity = await member_client.get_entity(f"+{admin_phone}")
+                                        else:
+                                            raise Exception("Не удалось добавить админа")
+                                    
+                                    await member_client.send_message(admin_entity, "👋 Привет! Готов к добавлению в группу.")
+                                    add_log(f"{member_phone} отправил приветствие админу", "success")
+                                    await asyncio.sleep(2)
+                                except Exception as e:
+                                    add_log(f"{member_phone} не смог отправить сообщение админу: {str(e)[:30]}", "warning")
+                                
+                                # Теперь участник импортирует контакты
+                                member_contacts = []
+                                for j, phone in enumerate(all_phones):
+                                    if phone == member_phone:
+                                        continue  # Не добавлять самого себя
+                                    
+                                    # Получить имя из сессии если есть
+                                    contact_name = "User"
+                                    contact_session = SESSIONS_DIR / phone / f"{phone}.json"
+                                    if contact_session.exists():
+                                        try:
+                                            with open(contact_session, 'r') as f:
+                                                contact_data = json.load(f)
+                                                contact_name = contact_data.get("first_name", "User")
+                                        except:
+                                            pass
+                                    
+                                    member_contacts.append(InputPhoneContact(
+                                        client_id=j,
+                                        phone=f"+{phone}",
+                                        first_name=contact_name,
+                                        last_name=""
+                                    ))
+                                
+                                if member_contacts:
+                                    try:
+                                        result = await member_client(ImportContactsRequest(member_contacts))
+                                        add_log(f"{member_phone} добавил {len(result.users)} контактов", "success")
+                                        await asyncio.sleep(2)  # Увеличена пауза
+                                    except Exception as e:
+                                        add_log(f"{member_phone} не смог добавить контакты: {str(e)[:30]}", "warning")
+                                
+                            finally:
+                                try:
+                                    await member_client.disconnect()
+                                except:
+                                    pass
+                                
+                        except Exception as e:
+                            add_log(f"Ошибка для участника {member_phone}: {str(e)[:30]}", "warning")
+                    
+                    # Пауза для синхронизации контактов
+                    await asyncio.sleep(5)  # Увеличена пауза для синхронизации
+                    
+                    # ШАГ 3: Получить entities для создания группы
+                    add_log(f"Ищу {len(group['members'])} участников для создания группы...", "info")
                     member_entities = []
+                    found_count = 0
+                    not_found_count = 0
+                    
                     for member in group["members"]:
                         try:
                             member_phone = member["phone"]
                             entity = await admin_client.get_entity(f"+{member_phone}")
                             member_entities.append(entity)
+                            found_count += 1
                             add_log(f"Найден: +{member_phone}", "success")
+                        except ValueError as e:
+                            error_msg = str(e).lower()
+                            not_found_count += 1
+                            if "could not find" in error_msg or "no user has" in error_msg:
+                                add_log(f"Не найден: +{member.get('phone', '?')} (не зарегистрирован или номер скрыт)", "warning")
+                            else:
+                                add_log(f"Не найден: +{member.get('phone', '?')} ({str(e)[:50]})", "warning")
                         except Exception as e:
-                            add_log(f"Не найден: +{member.get('phone', '?')}", "warning")
+                            not_found_count += 1
+                            add_log(f"Ошибка для +{member.get('phone', '?')}: {str(e)[:50]}", "warning")
+                    
+                    add_log(f"Найдено участников: {found_count}/{len(group['members'])}", "info")
                     
                     if member_entities:
                         add_log(f"Создаю группу с {len(member_entities)} участниками...", "info")
                         
-                        # Создать группу
-                        result = await admin_client(CreateChatRequest(
-                            users=member_entities,
-                            title=group["title"]
-                        ))
-                        
-                        # Получить ID группы (разные варианты структуры ответа)
-                        tg_id = None
                         try:
-                            if hasattr(result, 'chats') and result.chats:
-                                tg_id = result.chats[0].id
-                            elif hasattr(result, 'updates') and hasattr(result.updates, '__iter__'):
-                                for upd in result.updates:
-                                    if hasattr(upd, 'chat_id'):
-                                        tg_id = upd.chat_id
-                                        break
-                            elif hasattr(result, 'chat'):
-                                tg_id = result.chat.id
-                            elif hasattr(result, 'chat_id'):
-                                tg_id = result.chat_id
+                            # Создать группу
+                            result = await admin_client(CreateChatRequest(
+                                users=member_entities,
+                                title=group["title"]
+                            ))
                             
-                            # Если ничего не нашли, попробуем получить из диалогов
-                            if not tg_id:
-                                dialogs = await admin_client.get_dialogs(limit=5)
+                            add_log(f"Запрос на создание группы отправлен, обрабатываю ответ...", "info")
+                            
+                            # Получить ID группы (разные варианты структуры ответа)
+                            tg_id = None
+                            try:
+                                # Логируем структуру ответа для отладки
+                                add_log(f"Тип ответа: {type(result).__name__}", "info")
+                                
+                                if hasattr(result, 'chats') and result.chats:
+                                    tg_id = result.chats[0].id
+                                    add_log(f"ID найден через chats: {tg_id}", "info")
+                                elif hasattr(result, 'updates') and hasattr(result.updates, '__iter__'):
+                                    for upd in result.updates:
+                                        if hasattr(upd, 'chat_id'):
+                                            tg_id = upd.chat_id
+                                            add_log(f"ID найден через updates: {tg_id}", "info")
+                                            break
+                                elif hasattr(result, 'chat'):
+                                    tg_id = result.chat.id
+                                    add_log(f"ID найден через chat: {tg_id}", "info")
+                                elif hasattr(result, 'chat_id'):
+                                    tg_id = result.chat_id
+                                    add_log(f"ID найден через chat_id: {tg_id}", "info")
+                                
+                                # Если ничего не нашли, попробуем получить из диалогов
+                                if not tg_id:
+                                    add_log(f"ID не найден в ответе, ищу в диалогах...", "info")
+                                    await asyncio.sleep(2)  # Пауза для синхронизации
+                                    dialogs = await admin_client.get_dialogs(limit=10)
+                                    for d in dialogs:
+                                        if d.title == group["title"]:
+                                            tg_id = d.id
+                                            add_log(f"ID найден в диалогах: {tg_id}", "info")
+                                            break
+                            except Exception as e:
+                                add_log(f"Ошибка получения ID: {str(e)}", "error")
+                                import traceback
+                                add_log(f"Traceback: {traceback.format_exc()[:200]}", "error")
+                            
+                            if tg_id:
+                                group["telegram_group_id"] = tg_id
+                                group["status"] = "created"
+                                telegram_created += 1
+                                add_log(f"ГРУППА СОЗДАНА: {group['title']} (ID: {tg_id})", "success")
+                                
+                                # Сохранить сразу после создания группы
+                                try:
+                                    with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+                                        json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+                                    add_log(f"Статус группы сохранен в файл", "info")
+                                except Exception as save_err:
+                                    add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
+                            else:
+                                # Группа создана но ID не получен - попробуем найти
+                                add_log(f"Группа создана, но ID не получен. Ищу в диалогах...", "info")
+                                await asyncio.sleep(2)
+                                dialogs = await admin_client.get_dialogs(limit=20)
                                 for d in dialogs:
                                     if d.title == group["title"]:
                                         tg_id = d.id
+                                        group["telegram_group_id"] = tg_id
+                                        group["status"] = "created"
+                                        telegram_created += 1
+                                        add_log(f"ГРУППА НАЙДЕНА: {group['title']} (ID: {tg_id})", "success")
+                                        
+                                        # Сохранить сразу после нахождения группы
+                                        try:
+                                            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+                                                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
+                                            add_log(f"Статус группы сохранен в файл", "info")
+                                        except Exception as save_err:
+                                            add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
+                                        
                                         break
+                                
+                                if not tg_id:
+                                    group["status"] = "created_no_id"
+                                    add_log(f"Группа создана, но ID не найден: {group['title']}", "warning")
+                                    
                         except Exception as e:
-                            add_log(f"Ошибка получения ID: {str(e)[:30]}", "warning")
-                        
-                        if tg_id:
-                            group["telegram_group_id"] = tg_id
-                            group["status"] = "created"
-                            telegram_created += 1
-                            add_log(f"ГРУППА СОЗДАНА: {group['title']} (ID: {tg_id})", "success")
-                        else:
-                            # Группа создана но ID не получен - попробуем найти
-                            add_log(f"Группа создана, ищу ID...", "info")
-                            await asyncio.sleep(1)
-                            dialogs = await admin_client.get_dialogs(limit=10)
-                            for d in dialogs:
-                                if d.title == group["title"]:
-                                    tg_id = d.id
-                                    group["telegram_group_id"] = tg_id
-                                    group["status"] = "created"
-                                    telegram_created += 1
-                                    add_log(f"ГРУППА НАЙДЕНА: {group['title']} (ID: {tg_id})", "success")
-                                    break
+                            add_log(f"Ошибка при создании группы: {str(e)}", "error")
+                            import traceback
+                            add_log(f"Traceback: {traceback.format_exc()[:300]}", "error")
+                            group["status"] = "error"
+                            group["error"] = str(e)[:100]
                     else:
                         group["status"] = "no_members"
-                        add_log(f"Нет участников для группы: {group['title']}", "error")
+                        add_log(f"Нет участников для группы: {group['title']} (найдено: {found_count}, не найдено: {not_found_count})", "error")
                     
                     await admin_client.disconnect()
                     await asyncio.sleep(3)
@@ -1995,7 +2463,15 @@ async def create_telegram_group(group_id: str):
             member_app_hash = member.get("app_hash") or "b18441a1ff607e10a989891a5462e627"
             
             try:
-                member_client = TelegramClient(str(member_session), int(member_app_id), member_app_hash)
+                # Используем прокси!
+                member_client = await create_telegram_client(
+                    session_path=str(member_session),
+                    api_id=int(member_app_id),
+                    api_hash=member_app_hash,
+                    phone=member_phone,
+                    use_proxy=True,
+                    use_device_info=True
+                )
                 await member_client.connect()
                 
                 if not await member_client.is_user_authorized():
@@ -2048,7 +2524,15 @@ async def create_telegram_group(group_id: str):
         # Шаг 2: Админ отвечает и добавляет в контакты
         print("Шаг 2: Админ отвечает участникам...")
         
-        admin_client = TelegramClient(str(admin_session), int(app_id), app_hash)
+        # Используем прокси!
+        admin_client = await create_telegram_client(
+            session_path=str(admin_session),
+            api_id=int(app_id),
+            api_hash=app_hash,
+            phone=admin_phone,
+            use_proxy=True,
+            use_device_info=True
+        )
         await admin_client.connect()
         
         if not await admin_client.is_user_authorized():
@@ -2296,7 +2780,15 @@ async def start_group_chat(group_id: str, request: StartChatRequest = None):
                 
                 # Отправить сообщение в Telegram
                 try:
-                    client = TelegramClient(str(session_file), int(app_id), app_hash)
+                    # Используем прокси и уникальный device info!
+                    client = await create_telegram_client(
+                        session_path=str(session_file),
+                        api_id=int(app_id),
+                        api_hash=app_hash,
+                        phone=phone,
+                        use_proxy=True,
+                        use_device_info=True
+                    )
                     await client.connect()
                     
                     if await client.is_user_authorized():
@@ -2480,7 +2972,15 @@ async def create_telegram_for_group(group_id: str):
         app_id = admin.get("app_id") or int(os.getenv('TELEGRAM_API_ID', 2040))
         app_hash = admin.get("app_hash") or os.getenv('TELEGRAM_API_HASH', "b18441a1ff607e10a989891a5462e627")
         
-        client = TelegramClient(str(admin_session), app_id, app_hash)
+        # Используем прокси!
+        client = await create_telegram_client(
+            session_path=str(admin_session),
+            api_id=app_id,
+            api_hash=app_hash,
+            phone=admin_phone,
+            use_proxy=True,
+            use_device_info=True
+        )
         await client.connect()
         
         if not await client.is_user_authorized():
@@ -2515,9 +3015,15 @@ async def create_telegram_for_group(group_id: str):
             try:
                 entity = await client.get_entity(f"+{member['phone']}")
                 member_entities.append(entity)
-                add_log(f"Найден: {member['phone']}", "success")
+                add_log(f"✅ Найден: +{member['phone']}", "success")
+            except ValueError as e:
+                error_msg = str(e).lower()
+                if "could not find" in error_msg or "no user has" in error_msg:
+                    add_log(f"⚠️ Не найден: +{member['phone']} (не зарегистрирован или номер скрыт)", "warning")
+                else:
+                    add_log(f"⚠️ Не найден: +{member['phone']} ({str(e)[:50]})", "warning")
             except Exception as e:
-                add_log(f"Не найден: {member['phone']}", "warning")
+                add_log(f"⚠️ Ошибка для +{member['phone']}: {str(e)[:50]}", "warning")
         
         if not member_entities:
             await client.disconnect()
@@ -2674,6 +3180,15 @@ async def run_auto_chat_loop(groups):
                     add_log(f"[{group['title']}] Нет TG группы - пропуск", "warning")
                     continue
                 
+                # Преобразовать ID в число если это строка
+                if isinstance(telegram_group_id, str):
+                    try:
+                        telegram_group_id = int(telegram_group_id)
+                    except:
+                        add_log(f"[{group['title']}] Неверный формат ID группы: {telegram_group_id} - пропуск", "warning")
+                        auto_chat_active[group_id] = False
+                        continue
+                
                 all_members = [group["admin"]] + group["members"]
                 
                 # === ЖИВОЕ ОБЩЕНИЕ: 5-15 сообщений за раунд ===
@@ -2746,43 +3261,155 @@ async def run_auto_chat_loop(groups):
                                 message = random.choice(MEDIUM_MSGS)
                     
                     # === ОТПРАВКА В TELEGRAM ===
+                    client = None
                     try:
-                        client = TelegramClient(str(session_file), int(app_id), app_hash)
+                        # Используем прокси и уникальный device info!
+                        client = await create_telegram_client(
+                            session_path=str(session_file),
+                            api_id=int(app_id),
+                            api_hash=app_hash,
+                            phone=phone,  # phone определён выше
+                            use_proxy=True,
+                            use_device_info=True
+                        )
                         await client.connect()
                         
                         if await client.is_user_authorized():
-                            chat_id = int(telegram_group_id)
+                            # Правильная обработка ID группы (может быть отрицательным)
+                            try:
+                                chat_id = int(telegram_group_id)
+                                # Для обычных групп ID отрицательный, для супергрупп - положительный
+                                # Попробуем получить entity разными способами
+                                group_entity = None
+                                
+                                try:
+                                    # Сначала попробуем напрямую по ID
+                                    group_entity = await client.get_entity(chat_id)
+                                except Exception as e1:
+                                    try:
+                                        # Если не получилось, попробуем через диалоги
+                                        dialogs = await client.get_dialogs(limit=100)
+                                        for d in dialogs:
+                                            if d.id == chat_id:
+                                                group_entity = d.entity
+                                                add_log(f"[{group['title']}] Группа найдена через диалоги", "info")
+                                                break
+                                    except Exception as e2:
+                                        add_log(f"[{group['title']}] Ошибка поиска в диалогах: {str(e2)[:30]}", "warning")
+                                
+                                if not group_entity:
+                                    add_log(f"[{group['title']}] Группа не найдена (ID: {chat_id}) - отключаю авто-чат", "error")
+                                    # Отключить авто-чат для этой группы
+                                    auto_chat_active[group_id] = False
+                                    continue
+                                
+                                # Проверить, что это группа/супергруппа
+                                from telethon.tl.types import Chat, Channel, User
+                                if isinstance(group_entity, User):
+                                    add_log(f"[{group['title']}] Это не группа, а пользователь - пропуск", "warning")
+                                    auto_chat_active[group_id] = False
+                                    continue
+                                    
+                            except Exception as e:
+                                add_log(f"[{group['title']}] Peer недействителен: {str(e)[:40]} - отключаю авто-чат", "error")
+                                # Отключить авто-чат для этой группы
+                                auto_chat_active[group_id] = False
+                                continue
                             
-                            # Выбор действия: сообщение/реакция/ответ
+                            # Выбор действия: сообщение/реакция/ответ/стикер/гиф/видео
                             action = random.choices(
-                                ["msg", "react", "reply"],
-                                weights=[50, 25, 25],
+                                ["msg", "react", "reply", "sticker", "gif"],
+                                weights=[35, 20, 20, 15, 10],  # Увеличены шансы на медиа
                                 k=1
                             )[0]
                             
                             recent_msgs = []
                             try:
-                                async for m in client.iter_messages(chat_id, limit=8):
-                                    if m.text and m.id:
+                                async for m in client.iter_messages(group_entity, limit=8):
+                                    if m.id:
                                         recent_msgs.append(m)
-                            except:
-                                pass
+                            except Exception as e:
+                                add_log(f"[{group['title']}] Не удалось получить сообщения: {str(e)[:30]}", "warning")
+                                # Если не можем получить сообщения, используем только обычные сообщения
+                                action = "msg"
+                                recent_msgs = []
                             
                             if action == "react" and recent_msgs:
                                 # === РЕАКЦИЯ ===
                                 target = random.choice(recent_msgs[:5])
-                                emoji = random.choice(["👍", "❤️", "🔥", "😂", "🤔", "👏", "💯"])
+                                emoji = random.choice(["👍", "❤️", "🔥", "😂", "🤔", "👏", "💯", "😍", "🎉", "😭"])
                                 try:
                                     from telethon.tl.functions.messages import SendReactionRequest
                                     from telethon.tl.types import ReactionEmoji
                                     await client(SendReactionRequest(
-                                        peer=chat_id,
+                                        peer=group_entity,
                                         msg_id=target.id,
                                         reaction=[ReactionEmoji(emoticon=emoji)]
                                     ))
                                     add_log(f"[{group['title']}] {sender_name}: {emoji}", "success")
                                     msg_count += 1
-                                except:
+                                except Exception as e:
+                                    add_log(f"Реакция ошибка: {str(e)[:30]}", "warning")
+                                    action = "msg"
+                            
+                            elif action == "sticker":
+                                # === СТИКЕР ===
+                                try:
+                                    from telethon.tl.functions.messages import GetStickerSetRequest
+                                    from telethon.tl.types import InputStickerSetShortName
+                                    
+                                    # Популярные стикерпаки (проверенные рабочие)
+                                    sticker_packs = [
+                                        "TelegramGreatMinds", "Menhera", "pelosiangry",
+                                        "CatAcademy", "DonutDog", "StickerFace"
+                                    ]
+                                    pack_name = random.choice(sticker_packs)
+                                    
+                                    sticker_set = await client(GetStickerSetRequest(
+                                        stickerset=InputStickerSetShortName(short_name=pack_name),
+                                        hash=0
+                                    ))
+                                    
+                                    if sticker_set.documents:
+                                        sticker = random.choice(sticker_set.documents)
+                                        await client.send_file(group_entity, sticker)
+                                        add_log(f"[{group['title']}] {sender_name}: [sticker: {pack_name}]", "success")
+                                        msg_count += 1
+                                except Exception as e:
+                                    add_log(f"Sticker ошибка: {str(e)[:30]}", "warning")
+                                    action = "msg"
+                            
+                            elif action == "gif":
+                                # === GIF через inline бота @gif ===
+                                try:
+                                    from telethon.tl.functions.messages import GetInlineBotResultsRequest, SendInlineBotResultRequest
+                                    from telethon.tl.types import InputPeerEmpty
+                                    
+                                    # Поисковые запросы для GIF
+                                    gif_queries = ["funny", "reaction", "yes", "no", "lol", "wow", "ok", "hi", "cool", "nice", "happy", "sad", "dance", "cat", "dog"]
+                                    query = random.choice(gif_queries)
+                                    
+                                    # Получить результаты от @gif бота
+                                    gif_bot = await client.get_entity("@gif")
+                                    results = await client(GetInlineBotResultsRequest(
+                                        bot=gif_bot,
+                                        peer=group_entity,
+                                        query=query,
+                                        offset=""
+                                    ))
+                                    
+                                    if results.results:
+                                        result = random.choice(results.results[:10])
+                                        await client(SendInlineBotResultRequest(
+                                            peer=group_entity,
+                                            query_id=results.query_id,
+                                            id=result.id,
+                                            random_id=random.randint(1, 2**63)
+                                        ))
+                                        add_log(f"[{group['title']}] {sender_name}: [GIF: {query}]", "success")
+                                        msg_count += 1
+                                except Exception as e:
+                                    add_log(f"GIF ошибка: {str(e)[:30]}", "warning")
                                     action = "msg"
                             
                             if action == "reply" and recent_msgs:
@@ -2791,10 +3418,10 @@ async def run_auto_chat_loop(groups):
                                 typing_time = len(message) / random.uniform(4, 8)
                                 typing_time = max(1, min(typing_time, 20))
                                 
-                                async with client.action(chat_id, 'typing'):
+                                async with client.action(group_entity, 'typing'):
                                     await asyncio.sleep(typing_time)
                                 
-                                await client.send_message(chat_id, message, reply_to=target.id)
+                                await client.send_message(group_entity, message, reply_to=target.id)
                                 add_log(f"[{group['title']}] {sender_name} ответил: {message[:40]}...", "success")
                                 msg_count += 1
                                 
@@ -2804,10 +3431,10 @@ async def run_auto_chat_loop(groups):
                                 typing_time = max(1, min(typing_time, 25))
                                 
                                 add_log(f"[{group['title']}] {sender_name} печатает... ({typing_time:.0f}s)", "info")
-                                async with client.action(chat_id, 'typing'):
+                                async with client.action(group_entity, 'typing'):
                                     await asyncio.sleep(typing_time)
                                 
-                                await client.send_message(chat_id, message)
+                                await client.send_message(group_entity, message)
                                 add_log(f"[{group['title']}] {sender_name}: {message[:50]}...", "success")
                                 
                                 # Сохранить в историю
@@ -2820,10 +3447,15 @@ async def run_auto_chat_loop(groups):
                                 
                                 msg_count += 1
                         
-                        await client.disconnect()
-                        
                     except Exception as e:
                         add_log(f"TG ошибка: {str(e)[:40]}", "error")
+                    finally:
+                        # ВАЖНО: Всегда закрываем клиент!
+                        if client:
+                            try:
+                                await client.disconnect()
+                            except:
+                                pass
                     
                     # === ПАУЗА МЕЖДУ СООБЩЕНИЯМИ (живой чат!) ===
                     if len(message) < 10:
@@ -3036,7 +3668,6 @@ if __name__ == "__main__":
     print(f"   Dashboard: http://localhost:{port}/dashboard")
     print(f"   Sessions: http://localhost:{port}/sessions")
     print(f"   Groups: http://localhost:{port}/groups")
-    print(f"   Jobs: http://localhost:{port}/jobs")
     print("\nPress Ctrl+C to stop\n")
     
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

@@ -1,126 +1,431 @@
 {% extends "base.html" %}
 
-{% block title %}Jobs - Telegram Farm{% endblock %}
+{% block title %}Авто-прогрев - Telegram Farm{% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="page-header">
-        <h1 class="page-title">Jobs</h1>
-        <button class="btn btn-primary" onclick="showCreateJobModal()">Create Job</button>
+        <h1 class="page-title">🤖 Авто-прогрев</h1>
+        <div>
+            <button id="auto-warmup-btn" class="btn btn-lg" onclick="toggleAutoWarmup()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; font-size: 16px;">
+                ▶️ Запустить
+            </button>
+        </div>
     </div>
     
-    <div class="card">
+    <!-- Статус -->
+    <div class="card" style="margin-bottom: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);">
+        <div class="card-body" style="padding: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+                <div>
+                    <h2 style="margin: 0; color: white;">Симулятор живого человека</h2>
+                    <p style="color: #aaa; margin: 10px 0 0;">Каждый аккаунт ведёт себя как реальный пользователь с уникальным расписанием</p>
+                </div>
+                <div id="status-badge" style="padding: 10px 25px; border-radius: 25px; font-size: 14px; font-weight: bold; background: #333; color: #888;">
+                    ⏸️ Остановлен
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <h3 id="total-personas">0</h3>
+                <p>Всего аккаунтов</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-info">
+                <h3 id="active-now">0</h3>
+                <p>Активны сейчас</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+                <h3 id="actions-today">0</h3>
+                <p>Действий сегодня</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Список аккаунтов с персонами -->
+    <div class="card" style="margin-top: 20px;">
         <div class="card-header">
-            <h2>Active Jobs</h2>
+            <h2>👥 Аккаунты и их персоны</h2>
+            <button class="btn btn-sm" onclick="loadPersonas()">Обновить</button>
         </div>
         <div class="card-body">
-            <div id="jobs-list" class="table-container">
-                <p class="empty">No active jobs</p>
+            <div id="personas-list" class="table-container">
+                <p class="loading">Загрузка...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Распределение персон -->
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+            <h2>🎭 Распределение персон</h2>
+        </div>
+        <div class="card-body">
+            <div id="lifestyles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                <p class="empty">Нет данных</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Live лог -->
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+            <h2>📡 Live активность</h2>
+            <button class="btn btn-sm" onclick="clearLogs()" style="background: #dc3545;">Очистить</button>
+        </div>
+        <div id="live-logs" style="
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            padding: 15px;
+            background: #0f0f23;
+            color: #00ff00;
+        ">
+            <div style="color: #666;">Ожидание активности...</div>
+        </div>
+    </div>
+    
+    <!-- Описание стилей жизни -->
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+            <h2>📋 Стили жизни</h2>
+        </div>
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>👔 Worker (Работник)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Активен: утром (7-8), в обед (12-13), вечером (18-21). Выходные - весь день.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>🎓 Student (Студент)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Активен весь день, особенно вечером (20-22). Много GIF и мемов.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>💻 Freelancer (Фрилансер)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Хаотичная активность с 10 до 21. Интересуется IT и бизнесом.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>🦉 Night Owl (Сова)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Активен поздно вечером (21-23) и ночью. Игры, фильмы, аниме.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>🐦 Early Bird (Жаворонок)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Активен рано утром (6-9). Спорт, здоровье, новости.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>🏠 Housewife (Домохозяйка)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Активна весь день с перерывами. Рецепты, дети, шоппинг.</p>
+                </div>
+                <div class="lifestyle-card" style="background: #1a1a2e; padding: 15px; border-radius: 10px;">
+                    <h4>👴 Retired (Пенсионер)</h4>
+                    <p style="color: #aaa; font-size: 13px;">Размеренная активность (8-19). Новости, здоровье, природа.</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal для создания задачи -->
-<div id="create-job-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Create Warm-up Job</h2>
-            <button class="modal-close" onclick="closeJobModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <form id="create-job-form" onsubmit="createJob(event)">
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="text" name="phone_number" required placeholder="+79001234567">
-                </div>
-                <div class="form-group">
-                    <label>Account ID</label>
-                    <input type="text" name="account_id" required placeholder="account_123">
-                </div>
-                <div class="form-group">
-                    <label>Script ID</label>
-                    <input type="text" name="script_id" value="warmup_script_v1">
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="enable_group_chat"> Enable Group Chat
-                    </label>
-                </div>
-                <div class="form-group" id="group-id-field" style="display: none;">
-                    <label>Group ID</label>
-                    <input type="text" name="group_id" placeholder="123456789">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeJobModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Job</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<style>
+.lifestyle-card h4 {
+    margin: 0 0 10px;
+    color: white;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    function showCreateJobModal() {
-        document.getElementById('create-job-modal').style.display = 'block';
-    }
+    let autoWarmupActive = false;
     
-    function closeJobModal() {
-        document.getElementById('create-job-modal').style.display = 'none';
-    }
-    
-    // Показать/скрыть поле Group ID
-    document.querySelector('input[name="enable_group_chat"]').addEventListener('change', function(e) {
-        document.getElementById('group-id-field').style.display = e.target.checked ? 'block' : 'none';
-    });
-    
-    async function createJob(event) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        
-        const data = {
-            phone_number: formData.get('phone_number'),
-            account_id: formData.get('account_id'),
-            script_id: formData.get('script_id'),
-            enable_group_chat: formData.get('enable_group_chat') === 'on',
-            group_id: formData.get('group_id') || null
-        };
-        
+    async function loadStatus() {
         try {
-            const res = await fetch('/api/v1/jobs/create', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
+            const res = await fetch('/api/v1/life/status');
+            const data = await res.json();
+            
+            autoWarmupActive = data.auto_warmup_active;
+            
+            // Обновить кнопку и статус
+            const btn = document.getElementById('auto-warmup-btn');
+            const badge = document.getElementById('status-badge');
+            
+            if (autoWarmupActive) {
+                btn.innerHTML = '⏹️ Остановить';
+                btn.style.background = '#dc3545';
+                badge.innerHTML = '🟢 Активен';
+                badge.style.background = '#28a745';
+                badge.style.color = 'white';
+            } else {
+                btn.innerHTML = '▶️ Запустить';
+                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                badge.innerHTML = '⏸️ Остановлен';
+                badge.style.background = '#333';
+                badge.style.color = '#888';
+            }
+            
+            // Статистика
+            document.getElementById('total-personas').textContent = data.total_personas || 0;
+            document.getElementById('active-now').textContent = data.active_now || 0;
+            
+            // Распределение стилей жизни
+            const lifestyles = data.lifestyles || {};
+            const grid = document.getElementById('lifestyles-grid');
+            
+            const icons = {
+                'worker': '👔',
+                'student': '🎓',
+                'freelancer': '💻',
+                'night_owl': '🦉',
+                'early_bird': '🐦',
+                'housewife': '🏠',
+                'retired': '👴'
+            };
+            
+            const names = {
+                'worker': 'Работники',
+                'student': 'Студенты',
+                'freelancer': 'Фрилансеры',
+                'night_owl': 'Совы',
+                'early_bird': 'Жаворонки',
+                'housewife': 'Домохозяйки',
+                'retired': 'Пенсионеры'
+            };
+            
+            let html = '';
+            for (const [style, count] of Object.entries(lifestyles)) {
+                if (count > 0) {
+                    html += `
+                        <div style="background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%); padding: 15px; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 30px;">${icons[style] || '👤'}</div>
+                            <div style="font-size: 24px; font-weight: bold; margin: 5px 0;">${count}</div>
+                            <div style="color: #aaa; font-size: 12px;">${names[style] || style}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            if (html) {
+                grid.innerHTML = html;
+            } else {
+                grid.innerHTML = '<p style="color: #666;">Персоны создаются автоматически при авторизации аккаунтов</p>';
+            }
+            
+        } catch (error) {
+            console.error('Status error:', error);
+        }
+    }
+    
+    async function toggleAutoWarmup() {
+        try {
+            const endpoint = autoWarmupActive ? '/api/v1/life/auto-warmup/stop' : '/api/v1/life/auto-warmup/start';
+            const res = await fetch(endpoint, { method: 'POST' });
+            const data = await res.json();
             
             if (res.ok) {
-                const result = await res.json();
-                alert('Job created successfully! ID: ' + result.job_id);
-                closeJobModal();
-                form.reset();
+                addLog(data.message, 'success');
             } else {
-                const error = await res.json();
-                alert('Error: ' + error.detail);
+                addLog('Ошибка: ' + data.detail, 'error');
             }
+            
+            loadStatus();
         } catch (error) {
-            alert('Error creating job: ' + error.message);
+            addLog('Ошибка: ' + error.message, 'error');
         }
     }
     
-    // Закрыть модалку при клике вне её
-    window.onclick = function(event) {
-        const modal = document.getElementById('create-job-modal');
-        if (event.target == modal) {
-            closeJobModal();
+    function addLog(message, type = 'info') {
+        const container = document.getElementById('live-logs');
+        const time = new Date().toLocaleTimeString();
+        
+        const colors = {
+            'success': '#28a745',
+            'error': '#dc3545',
+            'warning': '#ffc107',
+            'info': '#17a2b8'
+        };
+        
+        const icons = {
+            'success': '✅',
+            'error': '❌',
+            'warning': '⚠️',
+            'info': '📝'
+        };
+        
+        const div = document.createElement('div');
+        div.style.color = colors[type] || '#fff';
+        div.innerHTML = `[${time}] ${icons[type] || ''} ${message}`;
+        
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        
+        // Ограничить логи
+        while (container.children.length > 100) {
+            container.removeChild(container.firstChild);
         }
     }
+    
+    function clearLogs() {
+        document.getElementById('live-logs').innerHTML = '<div style="color: #666;">Логи очищены</div>';
+    }
+    
+    // Загрузка логов с сервера
+    async function loadLogs() {
+        try {
+            const res = await fetch('/api/v1/live-logs');
+            const data = await res.json();
+            
+            if (data.logs && data.logs.length > 0) {
+                const container = document.getElementById('live-logs');
+                const currentCount = container.children.length;
+                
+                // Добавить только новые логи
+                for (let i = Math.max(0, data.logs.length - 20); i < data.logs.length; i++) {
+                    const log = data.logs[i];
+                    if (i >= currentCount - 1) {
+                        const type = log.level || 'info';
+                        const msg = log.message || log;
+                        addLog(typeof msg === 'string' ? msg : JSON.stringify(msg), type);
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+    
+    // Загрузка списка персон
+    async function loadPersonas() {
+        try {
+            const res = await fetch('/api/v1/life/personas');
+            const data = await res.json();
+            
+            if (!res.ok) {
+                document.getElementById('personas-list').innerHTML = '<p class="error">Ошибка загрузки</p>';
+                return;
+            }
+            
+            const personas = data.personas || [];
+            const container = document.getElementById('personas-list');
+            
+            if (personas.length === 0) {
+                container.innerHTML = '<p class="empty">Нет персон. Персоны создаются автоматически при авторизации аккаунтов.</p>';
+                return;
+            }
+            
+            const lifestyleIcons = {
+                'worker': '👔',
+                'student': '🎓',
+                'freelancer': '💻',
+                'night_owl': '🦉',
+                'early_bird': '🐦',
+                'housewife': '🏠',
+                'retired': '👴'
+            };
+            
+            const lifestyleNames = {
+                'worker': 'Работник',
+                'student': 'Студент',
+                'freelancer': 'Фрилансер',
+                'night_owl': 'Сова',
+                'early_bird': 'Жаворонок',
+                'housewife': 'Домохозяйка',
+                'retired': 'Пенсионер'
+            };
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Телефон</th>
+                            <th>Имя</th>
+                            <th>Персона</th>
+                            <th>Статус</th>
+                            <th>Активность</th>
+                            <th>Действий</th>
+                            <th>Интересы</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            for (const persona of personas) {
+                const isActive = persona.is_active;
+                const shouldBeActive = persona.should_be_active;
+                const activityLevel = persona.activity_level || 0;
+                
+                let statusHtml = '';
+                if (isActive) {
+                    statusHtml = '<span style="color: #28a745; font-weight: bold;">🟢 Активен</span>';
+                } else if (shouldBeActive) {
+                    statusHtml = '<span style="color: #ffc107;">🟡 Должен быть активен</span>';
+                } else {
+                    statusHtml = '<span style="color: #6c757d;">⚪ Неактивен</span>';
+                }
+                
+                const activityBar = `
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <div style="flex: 1; height: 8px; background: #333; border-radius: 4px; overflow: hidden;">
+                            <div style="height: 100%; width: ${activityLevel}%; background: linear-gradient(90deg, #28a745, #20c997); transition: width 0.3s;"></div>
+                        </div>
+                        <span style="font-size: 11px; color: #aaa;">${activityLevel}%</span>
+                    </div>
+                `;
+                
+                html += `
+                    <tr style="${isActive ? 'background: rgba(40, 167, 69, 0.1);' : ''}">
+                        <td><code>${persona.phone}</code></td>
+                        <td><strong>${persona.name || '-'}</strong></td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 20px;">${lifestyleIcons[persona.lifestyle] || '👤'}</span>
+                                <div>
+                                    <div style="font-weight: bold;">${lifestyleNames[persona.lifestyle] || persona.lifestyle}</div>
+                                    <small style="color: #aaa;">${persona.persona_name}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${statusHtml}</td>
+                        <td style="min-width: 120px;">${activityBar}</td>
+                        <td>
+                            <div>Сегодня: <strong>${persona.actions_today || 0}</strong></div>
+                            <small style="color: #aaa;">Всего: ${persona.total_actions || 0}</small>
+                        </td>
+                        <td>
+                            <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                ${(persona.interests || []).map(i => `<span style="background: #2d2d44; padding: 2px 8px; border-radius: 10px; font-size: 11px;">${i}</span>`).join('')}
+                            </div>
+                            ${persona.favorite_channels && persona.favorite_channels.length > 0 ? 
+                                `<div style="margin-top: 5px; font-size: 11px; color: #aaa;">📺 ${persona.favorite_channels.join(', ')}</div>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Personas error:', error);
+            document.getElementById('personas-list').innerHTML = '<p class="error">Ошибка загрузки: ' + error.message + '</p>';
+        }
+    }
+    
+    // Автообновление
+    setInterval(loadStatus, 3000);
+    setInterval(loadLogs, 2000);
+    setInterval(loadPersonas, 5000);
+    
+    // Загрузить при старте
+    loadStatus();
+    loadPersonas();
 </script>
 {% endblock %}
-
-
-
-
-
