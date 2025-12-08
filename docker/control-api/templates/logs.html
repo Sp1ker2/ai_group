@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - Telegram Farm{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1 class="page-title">📋 Все логи системы</h1>
+        <div>
+            <button class="btn btn-danger" onclick="clearAllLogs()" style="background: #dc3545;">🗑️ Очистить все</button>
+            <button class="btn btn-secondary" onclick="loadLogs()">🔄 Обновить</button>
+            <button class="btn btn-info" onclick="toggleAutoRefresh()" id="auto-refresh-btn" style="background: #17a2b8; color: white;">▶️ Авто-обновление</button>
+        </div>
+    </div>
+    
+    <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <h3 id="logs-total">0</h3>
+                <p>Всего логов</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3 id="logs-success">0</h3>
+                <p>Успешных</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">❌</div>
+            <div class="stat-info">
+                <h3 id="logs-error">0</h3>
+                <p>Ошибок</p>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+                <h3 id="logs-warning">0</h3>
+                <p>Предупреждений</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header" style="background: #1a1a2e; color: white; display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0; font-size: 16px;">📋 Логи системы</h2>
+            <div>
+                <input type="text" id="log-filter" placeholder="🔍 Фильтр по тексту..." 
+                    style="padding: 5px 10px; border-radius: 5px; border: 1px solid #4a4a6a; background: #0f0f23; color: white; margin-right: 10px; width: 200px;">
+                <select id="log-type-filter" style="padding: 5px 10px; border-radius: 5px; border: 1px solid #4a4a6a; background: #0f0f23; color: white; margin-right: 10px;">
+                    <option value="all">Все типы</option>
+                    <option value="success">✅ Успех</option>
+                    <option value="error">❌ Ошибка</option>
+                    <option value="warning">⚠️ Предупреждение</option>
+                    <option value="info">ℹ️ Информация</option>
+                </select>
+            </div>
+        </div>
+        <div id="logs-content" style="
+            height: 600px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            padding: 10px;
+            background: #0f0f23;
+            color: #00ff00;
+        ">
+            <div style="color: #666;">🔄 Загрузка логов...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let autoRefreshInterval = null;
+    let allLogs = [];
+    
+    // ========== FETCH С ТАЙМАУТОМ (чтобы не зависало) ==========
+    async function fetchWithTimeout(url, options = {}, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Таймаут запроса (${timeout}мс): ${url}`);
+            }
+            throw error;
+        }
+    }
+    
+    async function loadLogs() {
+        try {
+            const res = await fetchWithTimeout('/api/v1/logs/all', {}, 8000);
+            const data = await res.json();
+            
+            allLogs = data.logs || [];
+            updateLogsDisplay();
+            updateStats();
+        } catch (error) {
+            console.error('Error loading logs:', error);
+            document.getElementById('logs-content').innerHTML = 
+                '<div style="color: #ff4444;">❌ Ошибка загрузки логов: ' + error.message + '</div>';
+        }
+    }
+    
+    function updateStats() {
+        const total = allLogs.length;
+        const success = allLogs.filter(l => l.type === 'success').length;
+        const error = allLogs.filter(l => l.type === 'error').length;
+        const warning = allLogs.filter(l => l.type === 'warning').length;
+        
+        document.getElementById('logs-total').textContent = total;
+        document.getElementById('logs-success').textContent = success;
+        document.getElementById('logs-error').textContent = error;
+        document.getElementById('logs-warning').textContent = warning;
+    }
+    
+    function updateLogsDisplay() {
+        const logsDiv = document.getElementById('logs-content');
+        const filterText = document.getElementById('log-filter').value.toLowerCase();
+        const filterType = document.getElementById('log-type-filter').value;
+        
+        let filteredLogs = allLogs;
+        
+        // Фильтр по типу
+        if (filterType !== 'all') {
+            filteredLogs = filteredLogs.filter(log => log.type === filterType);
+        }
+        
+        // Фильтр по тексту
+        if (filterText) {
+            filteredLogs = filteredLogs.filter(log => 
+                log.message.toLowerCase().includes(filterText)
+            );
+        }
+        
+        if (filteredLogs.length === 0) {
+            logsDiv.innerHTML = '<div style="color: #666;">Нет логов для отображения</div>';
+            return;
+        }
+        
+        // Отобразить логи (новые сверху)
+        logsDiv.innerHTML = filteredLogs.slice().reverse().map(log => {
+            let color = '#00ff00';
+            let icon = '📝';
+            if (log.type === 'error') { color = '#ff4444'; icon = '❌'; }
+            else if (log.type === 'warning') { color = '#ffaa00'; icon = '⚠️'; }
+            else if (log.type === 'success') { color = '#00ff88'; icon = '✅'; }
+            else if (log.type === 'info') { color = '#00aaff'; icon = 'ℹ️'; }
+            
+            return `<div style="color: ${color}; margin-bottom: 3px; padding: 2px 0;">
+                <span style="color: #666;">[${log.time}]</span> ${icon} ${escapeHtml(log.message)}
+            </div>`;
+        }).join('');
+        
+        // Автопрокрутка вниз (к новым логам)
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    async function clearAllLogs() {
+        if (!confirm('Очистить ВСЕ логи? Это действие нельзя отменить!')) {
+            return;
+        }
+        
+        try {
+            const res = await fetchWithTimeout('/api/v1/logs/all', { method: 'DELETE' }, 5000);
+            const data = await res.json();
+            
+            if (res.ok) {
+                alert('✅ ' + data.message);
+                loadLogs();
+            } else {
+                alert('❌ Ошибка: ' + data.detail);
+            }
+        } catch (error) {
+            alert('❌ Ошибка: ' + error.message);
+        }
+    }
+    
+    function toggleAutoRefresh() {
+        const btn = document.getElementById('auto-refresh-btn');
+        
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            btn.textContent = '▶️ Авто-обновление';
+            btn.style.background = '#17a2b8';
+        } else {
+            autoRefreshInterval = setInterval(loadLogs, 2000); // Обновлять каждые 2 секунды
+            btn.textContent = '⏹️ Остановить';
+            btn.style.background = '#dc3545';
+        }
+    }
+    
+    // Фильтры
+    document.getElementById('log-filter').addEventListener('input', updateLogsDisplay);
+    document.getElementById('log-type-filter').addEventListener('change', updateLogsDisplay);
+    
+    // Загрузить логи при загрузке страницы
+    loadLogs();
+    
+    // Авто-обновление по умолчанию
+    toggleAutoRefresh();
+</script>
+
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 10px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .stat-icon {
+        font-size: 32px;
+    }
+    
+    .stat-info h3 {
+        margin: 0;
+        font-size: 24px;
+        color: #fff;
+    }
+    
+    .stat-info p {
+        margin: 5px 0 0 0;
+        color: #aaa;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+

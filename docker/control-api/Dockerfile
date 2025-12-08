@@ -9,10 +9,13 @@ RUN pip install --no-cache-dir \
     jinja2 \
     python-multipart \
     aiofiles \
+    aiohttp \
     asyncpg \
     redis \
     pydantic \
-    python-dotenv
+    python-dotenv \
+    telethon \
+    pysocks
 
 # Копирование кода
 COPY . /app

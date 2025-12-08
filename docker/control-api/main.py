@@ -257,13 +257,148 @@ def clear_sessions_cache():
 # Кэш для групп (обновляется каждые 10 секунд)
 _groups_cache = None
 _groups_cache_time = None
-GROUPS_CACHE_TTL = 10  # секунд
+GROUPS_CACHE_TTL = 60  # секунд (увеличено для производительности)
 
 def clear_groups_cache():
     """Очистить кэш групп"""
     global _groups_cache, _groups_cache_time
     _groups_cache = None
     _groups_cache_time = None
+
+# ========== Очередь для безопасной записи groups.json (последовательно) ==========
+_groups_write_queue = None
+_groups_write_worker_started = False
+
+async def _init_groups_write_queue():
+    """Инициализировать очередь для записи groups.json"""
+    global _groups_write_queue, _groups_write_worker_started
+    if _groups_write_queue is None:
+        _groups_write_queue = asyncio.Queue()
+    if not _groups_write_worker_started:
+        _groups_write_worker_started = True
+        asyncio.create_task(_groups_write_worker())
+
+async def _groups_write_worker():
+    """Worker для последовательной записи groups.json (по очереди)"""
+    while True:
+        try:
+            # Получить задачу из очереди
+            task = await _groups_write_queue.get()
+            
+            if task is None:  # Сигнал остановки
+                break
+            
+            # Проверить тип задачи
+            if isinstance(task, tuple) and len(task) == 3 and task[0] == "update":
+                # Задача на обновление (чтение-модификация-запись)
+                _, data_callback, update_func = task
+                try:
+                    await update_func(data_callback)
+                except Exception as e:
+                    print(f"[Groups Write] Ошибка обновления: {e}")
+            else:
+                # Обычная задача на запись
+                data, callback = task
+                
+                # Записать в файл (последовательно, по очереди)
+                try:
+                    with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2, ensure_ascii=False)
+                    clear_groups_cache()
+                    
+                    # Вызвать callback если есть
+                    if callback:
+                        if asyncio.iscoroutinefunction(callback):
+                            await callback()
+                        else:
+                            callback()
+                            
+                except Exception as e:
+                    print(f"[Groups Write] Ошибка записи: {e}")
+                    if callback:
+                        # Вызвать callback с ошибкой
+                        try:
+                            if asyncio.iscoroutinefunction(callback):
+                                await callback(error=e)
+                            else:
+                                callback(error=e)
+                        except:
+                            pass
+            
+            # Отметить задачу как выполненную
+            _groups_write_queue.task_done()
+            
+        except Exception as e:
+            print(f"[Groups Write Worker] Ошибка: {e}")
+            await asyncio.sleep(1)  # Пауза при ошибке
+
+async def safe_write_groups(data: dict, callback=None):
+    """
+    Безопасная запись groups.json через очередь (последовательно, по очереди).
+    Все операции записи будут выполняться последовательно, без race condition.
+    
+    Args:
+        data: Данные для записи (dict с ключом "groups")
+        callback: Функция для вызова после записи (опционально)
+    """
+    await _init_groups_write_queue()
+    await _groups_write_queue.put((data, callback))
+
+async def safe_update_group(group_id: str, updates: dict, callback=None):
+    """
+    Безопасное обновление одной группы (чтение-модификация-запись атомарно).
+    Все операции выполняются последовательно через очередь.
+    
+    Args:
+        group_id: ID группы для обновления
+        updates: Словарь с полями для обновления
+        callback: Функция для вызова после записи (опционально)
+    """
+    await _init_groups_write_queue()
+    
+    # Функция для чтения, модификации и записи (выполнится в worker последовательно)
+    async def update_task(data_callback):
+        group_id_inner, updates_inner, callback_inner = data_callback
+        
+        # Прочитать текущие данные (внутри worker'а - последовательно!)
+        if GROUPS_FILE.exists():
+            try:
+                with open(GROUPS_FILE, 'r', encoding='utf-8') as f:
+                    groups_data = json.load(f)
+                    if isinstance(groups_data, list):
+                        groups_data = {"groups": groups_data, "schedule": {"enabled": False, "interval_minutes": 60}}
+            except:
+                groups_data = {"groups": [], "schedule": {"enabled": False, "interval_minutes": 60}}
+        else:
+            groups_data = {"groups": [], "schedule": {"enabled": False, "interval_minutes": 60}}
+        
+        # Обновить группу
+        found = False
+        for g in groups_data.get("groups", []):
+            if g.get("id") == group_id_inner:
+                g.update(updates_inner)
+                found = True
+                break
+        
+        if not found:
+            # Если группа не найдена, добавить новую
+            new_group = {"id": group_id_inner, **updates_inner}
+            groups_data.setdefault("groups", []).append(new_group)
+        
+        # Записать обратно
+        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(groups_data, f, indent=2, ensure_ascii=False)
+        clear_groups_cache()
+        
+        # Вызвать callback
+        if callback_inner:
+            if asyncio.iscoroutinefunction(callback_inner):
+                await callback_inner()
+            else:
+                callback_inner()
+    
+    # Добавить задачу в очередь (worker выполнит её последовательно)
+    await _groups_write_queue.put(("update", (group_id, updates, callback), update_task))
 
 # Кэш для подсчёта сессий (обновляется каждые 60 секунд)
 _sessions_count_cache = None
@@ -378,10 +513,11 @@ async def get_sessions():
 
 @app.get("/api/v1/groups", response_class=JSONResponse)
 async def get_groups():
-    """Получить список групп - с кэшированием"""
+    """Получить список групп - с кэшированием и оптимизацией"""
     global _groups_cache, _groups_cache_time
     
     from time import time
+    import aiofiles
     
     # Проверить кэш
     if _groups_cache is not None and _groups_cache_time is not None:
@@ -395,15 +531,60 @@ async def get_groups():
         return result
     
     try:
-        with open(GROUPS_FILE, 'r', encoding='utf-8') as f:
+        # Использовать асинхронное чтение файла для лучшей производительности
+        async with aiofiles.open(GROUPS_FILE, 'r', encoding='utf-8') as f:
+            content = await f.read()
             try:
-                groups = json.load(f)
+                groups = json.loads(content)
                 # Поддержка разных форматов
                 if isinstance(groups, dict):
                     groups = groups.get('groups', [])
                 if not isinstance(groups, list):
                     groups = []
-                result = {"groups": groups, "total": len(groups)}
+                
+                # Оптимизация: убрать большие поля из ответа, но оставить структуру
+                optimized_groups = []
+                for group in groups:
+                    # Оптимизировать участников - убрать session_file и json_file
+                    optimized_members = []
+                    for member in group.get("members", []):
+                        optimized_members.append({
+                            "phone": member.get("phone"),
+                            "first_name": member.get("first_name"),
+                            "last_name": member.get("last_name"),
+                            "app_id": member.get("app_id"),
+                            "app_hash": member.get("app_hash")
+                        })
+                    
+                    # Оставить только необходимые поля для отображения списка
+                    # Сформировать all_phones из members и admin
+                    all_phones_list = []
+                    if group.get("admin") and group.get("admin", {}).get("phone"):
+                        all_phones_list.append(group.get("admin", {}).get("phone"))
+                    for member in optimized_members:
+                        if member.get("phone"):
+                            all_phones_list.append(member.get("phone"))
+                    
+                    optimized_group = {
+                        "id": group.get("id"),
+                        "title": group.get("title"),
+                        "status": group.get("status"),
+                        "telegram_group_id": group.get("telegram_group_id"),
+                        "admin": {
+                            "phone": group.get("admin", {}).get("phone"),
+                            "first_name": group.get("admin", {}).get("first_name"),
+                            "last_name": group.get("admin", {}).get("last_name"),
+                            "app_id": group.get("admin", {}).get("app_id"),
+                            "app_hash": group.get("admin", {}).get("app_hash")
+                        } if group.get("admin") else None,
+                        "members": optimized_members,  # Вернуть массив участников (без session_file/json_file)
+                        "all_phones": all_phones_list or group.get("all_phones", []),  # Для отображения количества участников
+                        "assigned_topic": group.get("assigned_topic"),
+                        "created_at": group.get("created_at")
+                    }
+                    optimized_groups.append(optimized_group)
+                
+                result = {"groups": optimized_groups, "total": len(optimized_groups)}
                 _groups_cache = result
                 _groups_cache_time = time()
                 return result
@@ -562,10 +743,8 @@ async def delete_all_groups():
                     add_log(f"⚠️ Ошибка при удалении группы {group_title}: {str(e)[:50]}", "warning")
                     errors.append(f"{group_title}: {str(e)[:50]}")
             
-            # Теперь очистить файл
-            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                json.dump({"groups": [], "schedule": {"enabled": False, "interval_minutes": 60}}, f, indent=2)
-            clear_groups_cache()
+            # Теперь очистить файл (последовательно через очередь)
+            await safe_write_groups({"groups": [], "schedule": {"enabled": False, "interval_minutes": 60}})
             
             message = f"Удалено {deleted_in_tg} групп в Telegram"
             if errors:
@@ -615,8 +794,10 @@ async def create_group(group: GroupRequest):
             
             groups_data.append(result)
             GROUPS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(GROUPS_FILE, 'w') as f:
-                json.dump(groups_data, f, indent=2)
+            # Сохранить через очередь (последовательно)
+            if isinstance(groups_data, list):
+                groups_data = {"groups": groups_data, "schedule": {"enabled": False, "interval_minutes": 60}}
+            await safe_write_groups(groups_data)
         
         return {"status": "success", "group": result}
     except Exception as e:
@@ -2062,9 +2243,8 @@ async def auto_create_groups(request: AutoGroupRequest):
         
         groups_file_data["groups"].extend(groups_created)
         
-        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-        clear_groups_cache()
+        # Сохранить через очередь (последовательно)
+        await safe_write_groups(groups_file_data)
         
         # Создать реальные Telegram группы если включено
         telegram_created = 0
@@ -2454,12 +2634,18 @@ async def auto_create_groups(request: AutoGroupRequest):
                                         group_created = True  # Установить флаг успешного создания
                                         add_log(f"✅ ГРУППА СОЗДАНА: {group['title']} (ID: {tg_id}) админом {current_admin_phone}", "success")
                                         
-                                        # Сохранить сразу после создания группы
+                                        # Сохранить сразу после создания группы (последовательно через очередь)
                                         try:
-                                            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-                                            clear_groups_cache()
-                                            add_log(f"Статус группы сохранен в файл", "info")
+                                            # Обновить только эту группу атомарно
+                                            await safe_update_group(
+                                                group["id"],
+                                                {
+                                                    "telegram_group_id": tg_id,
+                                                    "status": "created",
+                                                    "admin": current_admin
+                                                },
+                                                callback=lambda: add_log(f"Статус группы сохранен в файл", "info")
+                                            )
                                         except Exception as save_err:
                                             add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
                                     else:
@@ -2481,12 +2667,18 @@ async def auto_create_groups(request: AutoGroupRequest):
                                                     group_created = True  # Установить флаг успешного создания
                                                     add_log(f"ГРУППА НАЙДЕНА: {group['title']} (ID: {tg_id}) админом {current_admin_phone}", "success")
                                                     
-                                                    # Сохранить сразу после нахождения группы
+                                                    # Сохранить сразу после нахождения группы (последовательно через очередь)
                                                     try:
-                                                        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                                            json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-                                                        clear_groups_cache()
-                                                        add_log(f"Статус группы сохранен в файл", "info")
+                                                        # Обновить только эту группу атомарно
+                                                        await safe_update_group(
+                                                            group["id"],
+                                                            {
+                                                                "telegram_group_id": tg_id,
+                                                                "status": "created",
+                                                                "admin": current_admin
+                                                            },
+                                                            callback=lambda: add_log(f"Статус группы сохранен в файл", "info")
+                                                        )
                                                     except Exception as save_err:
                                                         add_log(f"Ошибка сохранения: {str(save_err)[:30]}", "warning")
                                                     
@@ -2836,11 +3028,11 @@ async def check_and_create_groups_for_new_sessions(request: dict = None):
             
             groups_file_data["groups"].extend(groups_created)
             
-            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-            clear_groups_cache()
-            
-            add_log(f"💾 Сохранено {len(groups_created)} новых групп", "success")
+            # Сохранить через очередь (последовательно)
+            await safe_write_groups(
+                groups_file_data,
+                callback=lambda: add_log(f"💾 Сохранено {len(groups_created)} новых групп", "success")
+            )
         
         # 9. Если нужно, создать группы в Telegram
         telegram_created = 0
@@ -3015,15 +3207,8 @@ async def check_and_create_groups_for_new_sessions(request: dict = None):
                                             if isinstance(groups_file_data, list):
                                                 groups_file_data = {"groups": groups_file_data}
                                             
-                                            # Обновить группу в списке
-                                            for g in groups_file_data.get("groups", []):
-                                                if g.get("id") == group["id"]:
-                                                    g.update(group)
-                                                    break
-                                            
-                                            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                                json.dump(groups_file_data, f, indent=2, ensure_ascii=False)
-                                            clear_groups_cache()
+                                            # Обновить группу через очередь (последовательно, атомарно)
+                                            await safe_update_group(group["id"], group)
                                         except:
                                             pass
                                     else:
@@ -3365,8 +3550,8 @@ async def create_telegram_group(group_id: str):
         groups_data["groups"][group_index]["status"] = "created" if telegram_group_id and telegram_group_id != "pending" else "invites_sent"
         groups_data["groups"][group_index]["messages_sent"] = messages_sent
         
-        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(groups_data, f, indent=2, ensure_ascii=False)
+        # Сохранить через очередь (последовательно)
+        await safe_write_groups(groups_data)
         
         return {
             "status": "success",
@@ -3827,10 +4012,11 @@ async def create_telegram_for_group(group_id: str):
             groups_data["groups"][group_idx]["telegram_group_id"] = tg_id
             groups_data["groups"][group_idx]["status"] = "created"
             
-            with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(groups_data, f, indent=2, ensure_ascii=False)
-            
-            add_log(f"ГРУППА СОЗДАНА! ID: {tg_id}", "success")
+            # Сохранить через очередь (последовательно)
+            await safe_write_groups(
+                groups_data,
+                callback=lambda: add_log(f"ГРУППА СОЗДАНА! ID: {tg_id}", "success")
+            )
             return {"status": "success", "message": f"TG группа создана! ID: {tg_id}", "telegram_group_id": tg_id}
         else:
             raise HTTPException(status_code=500, detail="Не удалось получить ID группы")
@@ -4135,6 +4321,13 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
     topic_energy = 10  # Энергия темы (падает со временем, при 0 - новая тема)
     last_sender = None  # Чтобы не один человек спамил
     
+    # Хранить время последнего сообщения для каждого участника (для имитации живой работы)
+    member_last_message_time = {}  # {phone: timestamp}
+    
+    # Разная частота ответов для разных участников (в часах)
+    # Распределение: 30% - раз в день, 40% - каждые 1.5 часа, 30% - раз в полдня
+    member_response_intervals = {}  # {phone: hours}
+    
     while any(auto_chat_active.values()):
         for i, group in enumerate(groups):
             group_id = group["id"]
@@ -4166,6 +4359,20 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                         continue
                 
                 all_members = [group["admin"]] + group["members"]
+                
+                # Инициализировать интервалы ответов для участников (если еще не установлены)
+                for member in all_members:
+                    phone = member.get("phone")
+                    if phone and phone not in member_response_intervals:
+                        # Распределение частоты ответов
+                        rand = random.random()
+                        if rand < 0.3:  # 30% - раз в день (24 часа)
+                            member_response_intervals[phone] = 24.0
+                        elif rand < 0.7:  # 40% - каждые 1.5 часа
+                            member_response_intervals[phone] = 1.5
+                        else:  # 30% - раз в полдня (12 часов)
+                            member_response_intervals[phone] = 12.0
+                        add_log(f"[{group['title']}] {phone[-4:]} будет отвечать каждые {member_response_intervals[phone]}ч", "info")
                 
                 # === ЖИВОЕ ОБЩЕНИЕ: 5-15 сообщений за раунд ===
                 messages_this_round = random.randint(5, 15)
@@ -4231,12 +4438,41 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                     if not auto_chat_active.get(group_id, False):
                         break
                     
-                    # Выбрать отправителя (не того же что и прошлый раз!)
-                    available_senders = [m for m in all_members if m.get("phone") != last_sender]
+                    # Выбрать отправителя с учетом интервалов ответов (имитация живой работы)
+                    from time import time
+                    current_time = time()
+                    
+                    # Фильтровать участников по времени последнего сообщения
+                    available_senders = []
+                    for m in all_members:
+                        phone = m.get("phone")
+                        if not phone:
+                            continue
+                        
+                        # Если это не тот же отправитель что и прошлый раз
+                        if phone == last_sender:
+                            continue
+                        
+                        # Проверить интервал ответа
+                        last_msg_time = member_last_message_time.get(phone, 0)
+                        interval_hours = member_response_intervals.get(phone, 1.5)
+                        time_since_last = (current_time - last_msg_time) / 3600.0  # в часах
+                        
+                        # Если прошло достаточно времени - можно писать
+                        if time_since_last >= interval_hours:
+                            available_senders.append(m)
+                    
+                    # Если нет доступных отправителей (все еще на паузе), выбрать случайного
                     if not available_senders:
-                        available_senders = all_members
+                        available_senders = [m for m in all_members if m.get("phone") != last_sender]
+                        if not available_senders:
+                            available_senders = all_members
+                    
                     sender = random.choice(available_senders)
                     last_sender = sender.get("phone")
+                    
+                    # Обновить время последнего сообщения
+                    member_last_message_time[last_sender] = current_time
                     
                     phone = sender["phone"]
                     session_file = SESSIONS_DIR / phone / f"{phone}.session"
@@ -4251,13 +4487,39 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                     # === ВЫБОР РАЗМЕРА СООБЩЕНИЯ ===
                     topic_energy -= 1
                     
-                    # Когда тема затухает - пауза и новая тема!
+                    # Когда тема затухает - пауза и новая тема из списка!
                     if topic_energy <= 0:
                         add_log(f"[{group['title']}] Тема затухла... пауза 30 сек", "warning")
                         await asyncio.sleep(30)
-                        message = random.choice(NEW_TOPICS)
+                        
+                        # Выбрать новую тему из topics.json (даже если группа не под это заточена)
+                        new_topic = None
+                        try:
+                            if TOPICS_FILE.exists():
+                                with open(TOPICS_FILE, 'r', encoding='utf-8') as f:
+                                    topics_data = json.load(f)
+                                    available_topics = topics_data.get("topics", [])
+                                    if available_topics:
+                                        new_topic = random.choice(available_topics)
+                                        # Обновить тему группы
+                                        group["assigned_topic"] = new_topic
+                                        add_log(f"[{group['title']}] Новая тема выбрана: {new_topic.get('name', 'Общение')}", "success")
+                        except Exception as e:
+                            add_log(f"[{group['title']}] Ошибка загрузки тем: {str(e)[:30]}", "warning")
+                        
+                        # Если не удалось загрузить тему, использовать случайное сообщение
+                        if not new_topic:
+                            message = random.choice(NEW_TOPICS)
+                        else:
+                            # Использовать промпт из темы или случайное сообщение
+                            prompts = new_topic.get("prompts", [])
+                            if prompts:
+                                message = random.choice(prompts)
+                            else:
+                                message = random.choice(NEW_TOPICS)
+                        
                         topic_energy = random.randint(8, 15)  # Новая энергия
-                        add_log(f"[{group['title']}] Новая тема вброшена!", "success")
+                        add_log(f"[{group['title']}] Новая тема вброшена: {message[:50]}...", "success")
                     else:
                         # Выбор типа сообщения по энергии и случайности
                         msg_type = random.choices(
@@ -4838,9 +5100,8 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                                                 g["subscribed_channels"] = group["subscribed_channels"]
                                                 break
                                         
-                                        with open(GROUPS_FILE, 'w', encoding='utf-8') as f:
-                                            json.dump(groups_data, f, indent=2, ensure_ascii=False)
-                                        clear_groups_cache()
+                                        # Сохранить через очередь (последовательно)
+                                        await safe_write_groups(groups_data)
                                     except:
                                         pass
                             

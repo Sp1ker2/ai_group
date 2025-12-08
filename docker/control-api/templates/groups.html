@@ -8,6 +8,7 @@
         <h1 class="page-title">Groups & AI Chat</h1>
         <div>
             <button class="btn btn-primary" onclick="showAutoCreateModal()">🤖 Авто-создание групп</button>
+            <button class="btn btn-info" onclick="checkAndCreateGroups(event)" style="background: #17a2b8; color: white;">🔍 Проверить и создать для новых</button>
             <button id="auto-chat-btn" class="btn btn-success" onclick="toggleAutoChat()" style="background: #28a745;">▶️ Авто-чат</button>
             <button class="btn btn-danger" onclick="deleteAllGroups()" style="background: #dc3545;">🗑️ Очистить</button>
             <button class="btn btn-secondary" onclick="loadGroups()">Обновить</button>
@@ -290,11 +291,32 @@
     let currentGroups = [];
     let allTopics = [];
     
+    // ========== FETCH С ТАЙМАУТОМ (чтобы не зависало) ==========
+    async function fetchWithTimeout(url, options = {}, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Таймаут запроса (${timeout}мс): ${url}`);
+            }
+            throw error;
+        }
+    }
+    
     // ========== AI KEY FUNCTIONS ==========
     
     async function loadAIStatus() {
         try {
-            const res = await fetch('/api/v1/ai/status');
+            const res = await fetchWithTimeout('/api/v1/ai/status', {}, 5000);
             const data = await res.json();
             
             const badge = document.getElementById('ai-status-badge');
@@ -525,6 +547,97 @@
         }
     }
     
+    async function checkAndCreateGroups(event) {
+        console.log('checkAndCreateGroups called', event);
+        
+        if (!confirm('Проверить все сессии и создать группы для тех, которые не участвуют в группах?')) {
+            return;
+        }
+        
+        const btn = event?.target || document.querySelector('button[onclick*="checkAndCreateGroups"]');
+        const originalText = btn?.textContent || '🔍 Проверить и создать для новых';
+        
+        console.log('Button found:', btn, 'Original text:', originalText);
+        
+        try {
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Проверка...';
+            }
+            
+            console.log('Starting check...');
+            addLog('🔍 Начинаю проверку сессий...', 'info');
+            
+            const requestData = {
+                min_group_size: 5,
+                max_group_size: 10,
+                create_telegram: true,  // Создавать группы в Telegram сразу
+                assign_topics: true
+            };
+            
+            addLog('📡 Отправляю запрос на сервер...', 'info');
+            addLog('⏱️ Это может занять несколько минут, пожалуйста подождите...', 'info');
+            
+            // Длительная операция - таймаут 5 минут (300 секунд)
+            const res = await fetchWithTimeout('/api/v1/groups/check-and-create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            }, 300000); // 5 минут для создания групп
+            
+            addLog('📥 Получен ответ от сервера...', 'info');
+            
+            let data;
+            try {
+                data = await res.json();
+            } catch (e) {
+                const text = await res.text();
+                addLog('❌ Ошибка парсинга ответа: ' + text.substring(0, 100), 'error');
+                throw new Error('Не удалось прочитать ответ сервера: ' + text.substring(0, 100));
+            }
+            
+            if (res.ok) {
+                addLog(`✅ ${data.message}`, 'success');
+                if (data.groups_created > 0) {
+                    addLog(`📊 Создано групп: ${data.groups_created}`, 'success');
+                    addLog(`📱 Новых сессий: ${data.new_sessions_count}`, 'info');
+                    addLog(`✅ Валидных сессий: ${data.valid_sessions_count}`, 'info');
+                    if (data.telegram_created > 0) {
+                        addLog(`📱 Создано в Telegram: ${data.telegram_created}`, 'success');
+                    }
+                } else {
+                    addLog(`ℹ️ Все сессии уже в группах или недостаточно новых сессий`, 'info');
+                }
+                alert('✅ ' + data.message);
+                loadGroups();
+            } else {
+                const errorMsg = data.detail || data.message || 'Неизвестная ошибка';
+                addLog('❌ Ошибка: ' + errorMsg, 'error');
+                alert('❌ Ошибка: ' + errorMsg);
+            }
+        } catch (error) {
+            console.error('Error in checkAndCreateGroups:', error);
+            let errorMsg = error.message;
+            
+            // Если таймаут - объяснить, что операция продолжается на сервере
+            if (errorMsg.includes('Таймаут')) {
+                errorMsg += '\n\n⚠️ ВАЖНО: Операция продолжает выполняться на сервере!\nОбновите страницу через несколько минут, чтобы увидеть результат.';
+                addLog('⏱️ Таймаут запроса, но операция продолжается на сервере...', 'warning');
+                addLog('💡 Обновите страницу через несколько минут, чтобы увидеть результат', 'info');
+            }
+            
+            addLog('❌ Ошибка: ' + errorMsg, 'error');
+            alert('❌ Ошибка: ' + errorMsg);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+    }
+    
     // Авто-чат
     let autoChatRunning = false;
     
@@ -612,7 +725,7 @@
     
     async function loadGroups() {
         try {
-            const res = await fetch('/api/v1/groups');
+            const res = await fetchWithTimeout('/api/v1/groups', {}, 8000); // 8 секунд таймаут
             const data = await res.json();
             
             currentGroups = data.groups || [];
@@ -624,21 +737,26 @@
             
             displayGroups(currentGroups);
             
-            // Загрузить количество сессий
-            const sessRes = await fetch('/api/v1/sessions');
-            const sessData = await sessRes.json();
-            document.getElementById('total-sessions').textContent = sessData.total || 0;
+            // Загрузить количество сессий (с таймаутом)
+            try {
+                const sessRes = await fetchWithTimeout('/api/v1/sessions', {}, 5000);
+                const sessData = await sessRes.json();
+                document.getElementById('total-sessions').textContent = sessData.total || 0;
+            } catch (e) {
+                console.warn('Не удалось загрузить количество сессий:', e);
+                document.getElementById('total-sessions').textContent = '?';
+            }
             
         } catch (error) {
             console.error('Error loading groups:', error);
             document.getElementById('groups-list').innerHTML = 
-                '<p class="error">Ошибка загрузки групп</p>';
+                `<p class="error">Ошибка загрузки групп: ${error.message}</p>`;
         }
     }
     
     async function loadTopics() {
         try {
-            const res = await fetch('/api/v1/topics');
+            const res = await fetchWithTimeout('/api/v1/topics', {}, 5000);
             const data = await res.json();
             allTopics = data.topics || [];
             
@@ -985,7 +1103,7 @@
     
     async function fetchLiveLogs() {
         try {
-            const res = await fetch('/api/v1/live-logs');
+            const res = await fetchWithTimeout('/api/v1/live-logs', {}, 3000); // 3 секунды для логов
             const data = await res.json();
             
             const logsDiv = document.getElementById('live-logs-content');
@@ -1044,6 +1162,28 @@
             '<div style="color: #666;">Логи очищены...</div>';
     }
     
+    // Функция для добавления логов локально
+    function addLog(message, type = 'info') {
+        const logsDiv = document.getElementById('live-logs-content');
+        if (!logsDiv) return;
+        
+        let color = '#00ff00';
+        let icon = '📝';
+        if (type === 'error') { color = '#ff4444'; icon = '❌'; }
+        else if (type === 'warning') { color = '#ffaa00'; icon = '⚠️'; }
+        else if (type === 'success') { color = '#00ff88'; icon = '✅'; }
+        else if (type === 'info') { color = '#00aaff'; icon = 'ℹ️'; }
+        
+        const time = new Date().toLocaleTimeString('ru-RU');
+        const logEntry = document.createElement('div');
+        logEntry.style.color = color;
+        logEntry.style.marginBottom = '3px';
+        logEntry.innerHTML = `<span style="color: #666;">[${time}]</span> ${icon} ${message}`;
+        
+        logsDiv.appendChild(logEntry);
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+    
     // Загрузить при старте
     loadGroups();
     loadAIStatus();  // Проверить статус AI
@@ -1051,6 +1191,25 @@
     loadDeviceStatus();  // Проверить статус устройств
     checkAutoChatStatus();
     startLogsPolling();
+    
+    // Остановить все интервалы при уходе со страницы
+    window.addEventListener('beforeunload', function() {
+        stopLogsPolling();
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    });
+    
+    // Обработка ошибок для предотвращения блокировки страницы
+    window.addEventListener('error', function(e) {
+        console.error('Page error:', e);
+        // Не блокировать переключение страниц
+    });
+    
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e);
+        e.preventDefault(); // Предотвратить блокировку
+    });
 </script>
 
 <style>

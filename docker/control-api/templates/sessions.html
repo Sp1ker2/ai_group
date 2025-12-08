@@ -110,9 +110,30 @@
 
 {% block extra_js %}
 <script>
+    // ========== FETCH С ТАЙМАУТОМ (чтобы не зависало) ==========
+    async function fetchWithTimeout(url, options = {}, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error(`Таймаут запроса (${timeout}мс): ${url}`);
+            }
+            throw error;
+        }
+    }
+    
     async function loadSessions() {
         try {
-            const res = await fetch('/api/v1/sessions');
+            const res = await fetchWithTimeout('/api/v1/sessions', {}, 8000);
             const data = await res.json();
             
             document.getElementById('sessions-total').textContent = data.total;
@@ -148,7 +169,11 @@
                         <tr>
                             <td>${s.phone}</td>
                             <td><code>${s.filename}</code></td>
-                            <td><span class="badge badge-success">Active</span></td>
+                            <td>
+                                ${s.status === 'Active' 
+                                    ? '<span class="badge badge-success">Active</span>' 
+                                    : '<span class="badge badge-warning">No Session</span>'}
+                            </td>
                             <td>${s.created_at || 'Unknown'}</td>
                             <td>
                                 <button class="btn btn-sm btn-primary" onclick="parseCodeFromSession('${s.phone}')" title="Парсить код из Telegram">🔍 Парсить код</button>
@@ -281,13 +306,24 @@
             '<div class="loading">Запрос кода в Telegram для ' + phone + '...<br>Код будет отправлен в Telegram на этот номер</div>';
         
         try {
-            const res = await fetch('/api/v1/sessions/get-code', {
+            const res = await fetchWithTimeout('/api/v1/sessions/get-code', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({phone_number: phone})
-            });
+            }, 10000);
             
-            const data = await res.json();
+            // Проверить, что ответ JSON
+            const contentType = res.headers.get('content-type');
+            let data;
+            
+            if (contentType && contentType.includes('application/json')) {
+                data = await res.json();
+            } else {
+                // Если не JSON, попробовать прочитать как текст
+                const text = await res.text();
+                console.error('Сервер вернул не JSON:', text.substring(0, 200));
+                throw new Error('Сервер вернул некорректный ответ. Попробуйте позже.');
+            }
             
             if (res.ok && data.status === 'code_sent') {
                 document.getElementById('get-code-form').style.display = 'none';
@@ -309,12 +345,24 @@
                     refreshSessions();
                 }, 2000);
             } else {
-                document.getElementById('get-code-status').innerHTML = 
-                    '<div class="error">Ошибка: ' + (data.detail || data.message || 'Неизвестная ошибка') + '</div>';
+                // Обработать ошибку 429 (Too Many Requests - нужно подождать)
+                if (res.status === 429 || (data.detail && data.detail.includes('подождать'))) {
+                    const waitMatch = data.detail.match(/(\d+)\s*(секунд|мин|сек)/);
+                    const waitTime = waitMatch ? waitMatch[1] : '60';
+                    document.getElementById('get-code-status').innerHTML = 
+                        '<div class="badge badge-warning">⏱️ ' + (data.detail || `Telegram требует подождать ${waitTime} секунд перед повторной отправкой кода. Это защита от спама.`) + '</div>';
+                } else {
+                    document.getElementById('get-code-status').innerHTML = 
+                        '<div class="error">Ошибка: ' + (data.detail || data.message || 'Неизвестная ошибка') + '</div>';
+                }
             }
         } catch (error) {
+            let errorMsg = error.message;
+            if (errorMsg.includes('JSON') || errorMsg.includes('Unexpected token')) {
+                errorMsg = 'Сервер вернул некорректный ответ. Возможно, нужно подождать перед повторной отправкой кода.';
+            }
             document.getElementById('get-code-status').innerHTML = 
-                '<div class="error">❌ Ошибка: ' + error.message + '</div>';
+                '<div class="error">❌ Ошибка: ' + errorMsg + '</div>';
         }
     }
     
@@ -572,6 +620,23 @@
     
     // Загрузить при старте
     loadSessions();
+    
+    // Остановить все интервалы при уходе со страницы
+    window.addEventListener('beforeunload', function() {
+        if (autoCodeCheckInterval) {
+            clearInterval(autoCodeCheckInterval);
+        }
+    });
+    
+    // Обработка ошибок для предотвращения блокировки страницы
+    window.addEventListener('error', function(e) {
+        console.error('Page error:', e);
+    });
+    
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e);
+        e.preventDefault();
+    });
 </script>
 {% endblock %}
 
