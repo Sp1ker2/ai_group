@@ -71,3 +71,4 @@ echo "  kubectl get secrets -n $NAMESPACE"
 
 
 
+
