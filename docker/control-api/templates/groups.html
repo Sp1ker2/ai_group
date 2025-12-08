@@ -28,6 +28,23 @@
         </div>
     </div>
 
+    <!-- Proxy & Device Panel -->
+    <div class="card" id="proxy-panel" style="margin-bottom: 20px; background: linear-gradient(135deg, #162447 0%, #1f4068 100%);">
+        <div class="card-body" style="padding: 15px;">
+            <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                <span style="color: #fff; font-weight: bold;">🌐 Прокси:</span>
+                <span id="proxy-status-badge" style="padding: 5px 15px; border-radius: 20px; font-size: 12px; background: #333; color: #999;">0 / 0</span>
+                <button onclick="showProxyModal()" class="btn" style="border-radius: 20px; padding: 8px 20px; background: #4a4a6a; color: white;">📤 Загрузить</button>
+                <button onclick="checkProxies()" class="btn" style="border-radius: 20px; padding: 8px 20px; background: #2e7d32; color: white;">✅ Проверить</button>
+                <button onclick="autoAssignProxies()" class="btn" style="border-radius: 20px; padding: 8px 20px; background: #1565c0; color: white;">🔗 Назначить</button>
+                
+                <span style="color: #fff; font-weight: bold; margin-left: 20px;">📱 Device:</span>
+                <span id="device-status-badge" style="padding: 5px 15px; border-radius: 20px; font-size: 12px; background: #333; color: #999;">0 устр.</span>
+                <button onclick="generateDevices()" class="btn" style="border-radius: 20px; padding: 8px 20px; background: #7b1fa2; color: white;">🎲 Сгенерировать</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Live Logs Panel - НАВЕРХУ -->
     <div class="card" id="live-logs-panel" style="margin-bottom: 20px;">
         <div class="card-header" style="background: #1a1a2e; color: white; display: flex; justify-content: space-between; align-items: center;">
@@ -214,6 +231,33 @@
     </div>
 </div>
 
+<!-- Modal для загрузки прокси -->
+<div id="proxy-modal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2>🌐 Загрузить прокси</h2>
+            <button class="modal-close" onclick="closeProxyModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom: 15px;">Введите прокси в формате <code>ip:port:login:password</code> (по одному на строку)</p>
+            
+            <div id="proxy-upload-status"></div>
+            
+            <div class="form-group">
+                <label>Список SOCKS5 прокси:</label>
+                <textarea id="proxies-textarea" rows="10" style="width: 100%; font-family: monospace; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #1a1a2e; color: #fff;" placeholder="185.123.45.67:1080:user1:pass1
+185.123.45.68:1080:user2:pass2
+..."></textarea>
+            </div>
+            
+            <div class="form-actions" style="margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" onclick="closeProxyModal()">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="uploadProxies()">📤 Загрузить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
 .topic-desc {
     background: var(--bg);
@@ -309,6 +353,154 @@
         } catch (error) {
             alert('❌ Ошибка: ' + error.message);
         }
+    }
+    
+    // ========== PROXY & DEVICE FUNCTIONS ==========
+    
+    async function loadProxyStatus() {
+        try {
+            const res = await fetch('/api/v1/proxies/status');
+            const data = await res.json();
+            
+            const badge = document.getElementById('proxy-status-badge');
+            if (data.total > 0) {
+                const alive = data.alive || 0;
+                const total = data.total || 0;
+                const assigned = data.assigned || 0;
+                
+                badge.style.background = alive > 0 ? '#28a745' : '#ffc107';
+                badge.style.color = 'white';
+                badge.textContent = `${alive}/${total} живых, ${assigned} назн.`;
+            } else {
+                badge.style.background = '#6c757d';
+                badge.style.color = 'white';
+                badge.textContent = 'Нет прокси';
+            }
+        } catch (error) {
+            console.error('Proxy status error:', error);
+        }
+    }
+    
+    async function loadDeviceStatus() {
+        try {
+            const res = await fetch('/api/v1/devices/status');
+            const data = await res.json();
+            
+            const badge = document.getElementById('device-status-badge');
+            const total = data.total_assigned || 0;
+            
+            if (total > 0) {
+                badge.style.background = '#7b1fa2';
+                badge.style.color = 'white';
+                badge.textContent = `${total} устр.`;
+            } else {
+                badge.style.background = '#6c757d';
+                badge.style.color = 'white';
+                badge.textContent = '0 устр.';
+            }
+        } catch (error) {
+            console.error('Device status error:', error);
+        }
+    }
+    
+    function showProxyModal() {
+        document.getElementById('proxy-modal').style.display = 'flex';
+    }
+    
+    function closeProxyModal() {
+        document.getElementById('proxy-modal').style.display = 'none';
+    }
+    
+    async function uploadProxies() {
+        const textarea = document.getElementById('proxies-textarea');
+        const text = textarea.value.trim();
+        
+        if (!text) {
+            alert('Введите список прокси!');
+            return;
+        }
+        
+        const statusDiv = document.getElementById('proxy-upload-status');
+        statusDiv.innerHTML = '<div class="alert alert-info">⏳ Загрузка...</div>';
+        
+        try {
+            const res = await fetch('/api/v1/proxies/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ proxies_text: text })
+            });
+            
+            const data = await res.json();
+            
+            if (res.ok) {
+                statusDiv.innerHTML = `<div class="alert alert-success">✅ Загружено ${data.loaded} прокси</div>`;
+                textarea.value = '';
+                loadProxyStatus();
+                setTimeout(closeProxyModal, 1500);
+            } else {
+                statusDiv.innerHTML = `<div class="alert alert-danger">❌ ${data.detail}</div>`;
+            }
+        } catch (error) {
+            statusDiv.innerHTML = `<div class="alert alert-danger">❌ ${error.message}</div>`;
+        }
+    }
+    
+    async function checkProxies() {
+        const badge = document.getElementById('proxy-status-badge');
+        badge.textContent = '⏳ Проверка...';
+        badge.style.background = '#ffc107';
+        
+        try {
+            const res = await fetch('/api/v1/proxies/check', { method: 'POST' });
+            const data = await res.json();
+            
+            if (res.ok) {
+                alert(`✅ Проверено: ${data.alive} живых, ${data.dead} мертвых из ${data.total}`);
+            } else {
+                alert('❌ Ошибка: ' + data.detail);
+            }
+        } catch (error) {
+            alert('❌ Ошибка: ' + error.message);
+        }
+        
+        loadProxyStatus();
+    }
+    
+    async function autoAssignProxies() {
+        try {
+            const res = await fetch('/api/v1/proxies/auto-assign', { method: 'POST' });
+            const data = await res.json();
+            
+            if (res.ok) {
+                alert(`✅ ${data.message}`);
+            } else {
+                alert('❌ Ошибка: ' + data.detail);
+            }
+        } catch (error) {
+            alert('❌ Ошибка: ' + error.message);
+        }
+        
+        loadProxyStatus();
+    }
+    
+    async function generateDevices() {
+        const badge = document.getElementById('device-status-badge');
+        badge.textContent = '⏳ Генерация...';
+        
+        try {
+            const res = await fetch('/api/v1/devices/generate', { method: 'POST' });
+            const data = await res.json();
+            
+            if (res.ok) {
+                alert(`✅ Сгенерировано ${data.generated} уникальных устройств`);
+            } else {
+                alert('❌ Ошибка: ' + data.detail);
+            }
+        } catch (error) {
+            alert('❌ Ошибка: ' + error.message);
+        }
+        
+        loadDeviceStatus();
     }
     
     // ========== GROUPS FUNCTIONS ==========
@@ -855,6 +1047,8 @@
     // Загрузить при старте
     loadGroups();
     loadAIStatus();  // Проверить статус AI
+    loadProxyStatus();  // Проверить статус прокси
+    loadDeviceStatus();  // Проверить статус устройств
     checkAutoChatStatus();
     startLogsPolling();
 </script>

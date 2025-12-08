@@ -19,17 +19,28 @@ except ImportError:
     OPENAI_AVAILABLE = False
     print("WARNING: openai не установлен. Установите: pip install openai")
 
+# ========== API КЛЮЧИ ==========
+# Groq (бесплатный) - получить на https://console.groq.com/keys
+# Ключ задается через UI или переменную окружения GROQ_API_KEY
+DEFAULT_GROQ_API_KEY = ""
+
+# OpenAI (платный) - получить на https://platform.openai.com/api-keys  
+DEFAULT_OPENAI_API_KEY = ""
+# ================================
+
 # Конфигурация провайдеров AI
 AI_PROVIDERS = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
         "model": "llama-3.1-8b-instant",  # Быстрая бесплатная модель
-        "name": "Groq (FREE)"
+        "name": "Groq (FREE)",
+        "default_key": DEFAULT_GROQ_API_KEY
     },
     "openai": {
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-3.5-turbo",
-        "name": "OpenAI"
+        "name": "OpenAI",
+        "default_key": DEFAULT_OPENAI_API_KEY
     }
 }
 
@@ -141,7 +152,15 @@ class OpenAIChatManager:
         """
         self.provider = provider
         self.provider_config = AI_PROVIDERS.get(provider, AI_PROVIDERS["groq"])
-        self.api_key = api_key or os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+        
+        # Приоритет ключей: переданный > env > дефолтный в коде
+        self.api_key = (
+            api_key or 
+            os.getenv("GROQ_API_KEY") or 
+            os.getenv("OPENAI_API_KEY") or
+            self.provider_config.get("default_key", "")
+        )
+        
         self.client = None
         self.conversation_history: Dict[str, List[dict]] = {}
         self.topic_manager = TopicManager()
@@ -153,6 +172,8 @@ class OpenAIChatManager:
                 base_url=self.provider_config["base_url"]
             )
             print(f"[AI] Используется: {self.provider_config['name']} ({self.model})")
+        else:
+            print(f"[AI] ВНИМАНИЕ: Ключ не найден! Будут использоваться fallback сообщения.")
     
     def set_topics_file(self, filepath: str):
         """Установить файл тем"""

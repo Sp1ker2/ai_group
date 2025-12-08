@@ -59,6 +59,89 @@ SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 PHONES_DIR.mkdir(parents=True, exist_ok=True)
 GROUPS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
+# ========== Proxy и Device Manager ==========
+from proxy_manager import get_proxy_manager, ProxyInfo
+from device_generator import get_device_generator, DeviceInfo
+
+# Инициализация менеджеров
+STORAGE_PATH = str(BASE_PROJECT_DIR / "local-storage")
+proxy_mgr = get_proxy_manager(STORAGE_PATH)
+device_gen = get_device_generator(STORAGE_PATH)
+
+# Попытка импорта socks для прокси
+try:
+    import socks
+    SOCKS_AVAILABLE = True
+except ImportError:
+    SOCKS_AVAILABLE = False
+    print("WARNING: PySocks не установлен. Прокси не будут работать. pip install pysocks")
+
+
+async def create_telegram_client(
+    session_path: str,
+    api_id: int,
+    api_hash: str,
+    phone: str = None,
+    use_proxy: bool = True,
+    use_device_info: bool = True
+):
+    """
+    Создать TelegramClient с прокси и уникальным device info.
+    
+    Args:
+        session_path: Путь к session файлу или StringSession
+        api_id: Telegram API ID
+        api_hash: Telegram API Hash
+        phone: Номер телефона для получения прокси и device info
+        use_proxy: Использовать прокси
+        use_device_info: Использовать уникальный device info
+    
+    Returns:
+        TelegramClient
+    """
+    from telethon import TelegramClient
+    from telethon.sessions import StringSession
+    
+    # Параметры клиента
+    client_kwargs = {}
+    
+    # Добавить прокси если доступно
+    if use_proxy and phone and SOCKS_AVAILABLE:
+        proxy_info = proxy_mgr.get_proxy_for_phone(phone)
+        if proxy_info:
+            client_kwargs["proxy"] = (
+                socks.SOCKS5,
+                proxy_info.ip,
+                proxy_info.port,
+                True,  # rdns
+                proxy_info.username,
+                proxy_info.password
+            )
+            print(f"[Proxy] {phone} -> {proxy_info.ip}:{proxy_info.port}")
+    
+    # Добавить device info если доступно
+    if use_device_info and phone:
+        device_info = device_gen.get_device_for_phone(phone)
+        if device_info:
+            client_kwargs["device_model"] = device_info.device_model
+            client_kwargs["system_version"] = device_info.system_version
+            client_kwargs["app_version"] = device_info.app_version
+            client_kwargs["lang_code"] = device_info.lang_code
+            client_kwargs["system_lang_code"] = device_info.system_lang_code
+            print(f"[Device] {phone} -> {device_info.brand} {device_info.device_name}")
+    
+    # Определить тип сессии
+    if isinstance(session_path, str) and session_path.startswith("1"):
+        # Это StringSession (начинается с "1")
+        client = TelegramClient(StringSession(session_path), api_id, api_hash, **client_kwargs)
+    elif isinstance(session_path, StringSession):
+        client = TelegramClient(session_path, api_id, api_hash, **client_kwargs)
+    else:
+        # Это путь к файлу
+        client = TelegramClient(str(session_path), api_id, api_hash, **client_kwargs)
+    
+    return client
+
 
 class JobRequest(BaseModel):
     phone_number: str
@@ -2768,6 +2851,177 @@ async def run_auto_chat_loop(groups):
     
     progress_status = {"active": False, "current": 0, "total": 0, "message": ""}
     add_log("=== АВТО-ЧАТ ОСТАНОВЛЕН ===", "warning")
+
+
+# ========== PROXY MANAGEMENT API ==========
+
+class ProxyUploadRequest(BaseModel):
+    proxies_text: str  # ip:port:user:pass по строкам
+
+
+@app.post("/api/v1/proxies/upload")
+async def upload_proxies(request: ProxyUploadRequest):
+    """Загрузить список прокси"""
+    try:
+        count = proxy_mgr.load_proxies_from_text(request.proxies_text)
+        return {
+            "status": "success",
+            "loaded": count,
+            "message": f"Загружено {count} прокси"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/v1/proxies/check")
+async def check_proxies():
+    """Проверить все прокси на работоспособность"""
+    try:
+        # Сначала загрузить из файла если не загружены
+        if not proxy_mgr.proxies:
+            proxy_mgr.load_proxies_from_file()
+        
+        if not proxy_mgr.proxies:
+            return {
+                "status": "warning",
+                "message": "Нет прокси для проверки",
+                "alive": 0,
+                "dead": 0,
+                "total": 0
+            }
+        
+        result = await proxy_mgr.check_all_proxies(timeout=10)
+        return {
+            "status": "success",
+            **result,
+            "message": f"Проверено: {result['alive']} живых, {result['dead']} мертвых"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/proxies/status")
+async def get_proxies_status():
+    """Получить статус всех прокси"""
+    try:
+        # Загрузить из файла если не загружены
+        if not proxy_mgr.proxies:
+            proxy_mgr.load_proxies_from_file()
+        
+        return {
+            "status": "success",
+            **proxy_mgr.get_status()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/proxies/auto-assign")
+async def auto_assign_proxies():
+    """Автоматически назначить прокси всем аккаунтам"""
+    try:
+        # Загрузить прокси если не загружены
+        if not proxy_mgr.proxies:
+            proxy_mgr.load_proxies_from_file()
+        
+        if not proxy_mgr.proxies:
+            return {
+                "status": "warning",
+                "message": "Нет прокси для назначения. Загрузите прокси сначала.",
+                "assigned": 0
+            }
+        
+        # Получить все телефоны
+        phones = []
+        if SESSIONS_DIR.exists():
+            for phone_dir in SESSIONS_DIR.iterdir():
+                if phone_dir.is_dir() and phone_dir.name.isdigit():
+                    phones.append(phone_dir.name)
+        
+        if not phones:
+            return {
+                "status": "warning",
+                "message": "Нет аккаунтов для назначения прокси",
+                "assigned": 0
+            }
+        
+        assigned = proxy_mgr.auto_assign_proxies(phones)
+        
+        return {
+            "status": "success",
+            "assigned": len(assigned),
+            "total_phones": len(phones),
+            "message": f"Назначено {len(assigned)} прокси из {len(phones)} аккаунтов"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/proxies/clear")
+async def clear_proxy_assignments():
+    """Очистить все назначения прокси"""
+    try:
+        proxy_mgr.clear_assignments()
+        return {"status": "success", "message": "Все назначения прокси очищены"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== DEVICE MANAGEMENT API ==========
+
+@app.post("/api/v1/devices/generate")
+async def generate_devices():
+    """Сгенерировать уникальные устройства для всех аккаунтов"""
+    try:
+        generated = device_gen.generate_for_all_sessions()
+        
+        return {
+            "status": "success",
+            "generated": len(generated),
+            "message": f"Сгенерировано {len(generated)} уникальных устройств",
+            "devices": {phone: device.to_dict() for phone, device in generated.items()}
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/devices/status")
+async def get_devices_status():
+    """Получить статус устройств"""
+    try:
+        return {
+            "status": "success",
+            **device_gen.get_status()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/devices/clear")
+async def clear_device_assignments():
+    """Очистить все назначения устройств"""
+    try:
+        device_gen.clear_assignments()
+        return {"status": "success", "message": "Все назначения устройств очищены"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/session/{phone}/environment")
+async def get_session_environment(phone: str):
+    """Получить прокси и устройство для конкретного аккаунта"""
+    try:
+        proxy = proxy_mgr.get_proxy_for_phone(phone)
+        device = device_gen.get_device_for_phone(phone)
+        
+        return {
+            "status": "success",
+            "phone": phone,
+            "proxy": proxy.to_dict() if proxy else None,
+            "device": device.to_dict() if device else None
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
