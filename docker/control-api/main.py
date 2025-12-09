@@ -143,6 +143,317 @@ async def create_telegram_client(
     return client
 
 
+async def safe_disconnect_client(client):
+    """
+    Безопасно закрыть TelegramClient с таймаутом и обработкой ошибок.
+    Предотвращает зависшие задачи и утечки соединений.
+    """
+    if not client:
+        return
+    
+    try:
+        # Попытка корректного закрытия с таймаутом
+        await asyncio.wait_for(client.disconnect(), timeout=5.0)
+    except asyncio.TimeoutError:
+        # Если не удалось закрыть за 5 секунд - принудительно
+        try:
+            if hasattr(client, '_sender') and client._sender:
+                if hasattr(client._sender, 'disconnect'):
+                    client._sender.disconnect()
+            if hasattr(client, '_connection') and client._connection:
+                if hasattr(client._connection, 'disconnect'):
+                    client._connection.disconnect()
+        except:
+            pass
+    except Exception:
+        # Игнорируем ошибки при закрытии
+        pass
+
+
+# Глобальный словарь для отслеживания активных сессий
+_active_sessions = {}  # phone -> {"start_time": datetime, "total_seconds": float}
+
+def start_activity_session(phone: str):
+    """
+    Начать отслеживание активности аккаунта.
+    Вызывается при подключении аккаунта.
+    """
+    try:
+        phone_clean = phone.replace('+', '').replace('-', '').replace(' ', '')
+        
+        # Если сессия уже активна, не начинаем новую
+        if phone_clean in _active_sessions:
+            return
+        
+        # Начать новую сессию активности
+        _active_sessions[phone_clean] = {
+            "start_time": datetime.now(),
+            "total_seconds": 0.0
+        }
+    except Exception as e:
+        print(f"Ошибка начала сессии активности для {phone}: {e}")
+
+def stop_activity_session(phone: str):
+    """
+    Остановить отслеживание активности аккаунта и сохранить накопленное время.
+    Вызывается при отключении аккаунта.
+    """
+    try:
+        phone_clean = phone.replace('+', '').replace('-', '').replace(' ', '')
+        
+        if phone_clean not in _active_sessions:
+            return
+        
+        # Вычислить время текущей сессии
+        session = _active_sessions[phone_clean]
+        end_time = datetime.now()
+        session_duration = (end_time - session["start_time"]).total_seconds()
+        total_seconds = session["total_seconds"] + session_duration
+        
+        # Найти JSON файл сессии и обновить общее время активности
+        if not SESSIONS_DIR.exists():
+            del _active_sessions[phone_clean]
+            return
+        
+        json_files = list(SESSIONS_DIR.rglob("*.json"))
+        for json_path in json_files:
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    
+                    phone_in_data = data.get('phone_number') or data.get('phone')
+                    if phone_in_data:
+                        phone_in_data_clean = str(phone_in_data).replace('+', '').replace('-', '').replace(' ', '')
+                        if phone_in_data_clean == phone_clean:
+                            # Получить текущее общее время активности
+                            current_total = data.get('total_activity_seconds', 0.0)
+                            if isinstance(current_total, str):
+                                current_total = float(current_total)
+                            
+                            # Добавить время текущей сессии
+                            new_total = current_total + session_duration
+                            
+                            # Обновить данные
+                            data['total_activity_seconds'] = new_total
+                            data['last_activity_at'] = datetime.now().isoformat()
+                            
+                            # Сохранить обновленные данные
+                            with open(json_path, 'w', encoding='utf-8') as f:
+                                json.dump(data, f, indent=2, ensure_ascii=False)
+                            
+                            # Удалить сессию из активных
+                            del _active_sessions[phone_clean]
+                            return
+            except Exception as e:
+                continue
+        
+        # Если файл не найден, просто удалить сессию
+        del _active_sessions[phone_clean]
+    except Exception as e:
+        print(f"Ошибка остановки сессии активности для {phone}: {e}")
+        if phone_clean in _active_sessions:
+            del _active_sessions[phone_clean]
+
+def get_current_activity_time(phone: str) -> float:
+    """
+    Получить текущее общее время активности аккаунта (включая активную сессию).
+    """
+    try:
+        phone_clean = phone.replace('+', '').replace('-', '').replace(' ', '')
+        
+        # Получить сохраненное время из JSON
+        if not SESSIONS_DIR.exists():
+            return 0.0
+        
+        json_files = list(SESSIONS_DIR.rglob("*.json"))
+        for json_path in json_files:
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    
+                    phone_in_data = data.get('phone_number') or data.get('phone')
+                    if phone_in_data:
+                        phone_in_data_clean = str(phone_in_data).replace('+', '').replace('-', '').replace(' ', '')
+                        if phone_in_data_clean == phone_clean:
+                            total_seconds = data.get('total_activity_seconds', 0.0)
+                            if isinstance(total_seconds, str):
+                                total_seconds = float(total_seconds)
+                            
+                            # Добавить время текущей активной сессии если есть
+                            if phone_clean in _active_sessions:
+                                session = _active_sessions[phone_clean]
+                                current_session_time = (datetime.now() - session["start_time"]).total_seconds()
+                                total_seconds += current_session_time
+                            
+                            return total_seconds
+            except Exception as e:
+                continue
+        
+        return 0.0
+    except Exception as e:
+        return 0.0
+
+
+async def check_account_restrictions(session_path: str, api_id: int, api_hash: str, phone: str = None):
+    """
+    Проверить ограничения Telegram аккаунта:
+    - Shadow ban (тень) - аккаунт может отправлять, но сообщения не видны
+    - Flood/rate limit (мороз) - аккаунт ограничен из-за частых действий
+    - Ограничения на отправку сообщений
+    - Ограничения на создание групп
+    
+    Returns:
+        dict: {
+            "status": "ok" | "shadow_ban" | "flood_limit" | "restricted" | "error",
+            "details": {...},
+            "can_send_messages": bool,
+            "can_create_groups": bool,
+            "flood_wait_until": datetime | None
+        }
+    """
+    client = None
+    try:
+        # Создать клиент
+        client = await create_telegram_client(
+            session_path=session_path,
+            api_id=api_id,
+            api_hash=api_hash,
+            phone=phone,
+            use_proxy=True,
+            use_device_info=True
+        )
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            return {
+                "status": "error",
+                "details": {"error": "Аккаунт не авторизован"},
+                "can_send_messages": False,
+                "can_create_groups": False,
+                "flood_wait_until": None
+            }
+        
+        me = await client.get_me()
+        
+        # Начать отслеживание активности
+        if phone:
+            start_activity_session(phone)
+        
+        result = {
+            "status": "ok",
+            "details": {},
+            "can_send_messages": True,
+            "can_create_groups": True,
+            "flood_wait_until": None,
+            "phone": phone or me.phone,
+            "user_id": me.id
+        }
+        
+        # Проверка 1: Shadow ban - попытка отправить сообщение в Saved Messages
+        try:
+            saved_messages = await client.get_entity("me")
+            test_message = f"Test {datetime.now().timestamp()}"
+            sent_msg = await asyncio.wait_for(
+                client.send_message(saved_messages, test_message),
+                timeout=10.0
+            )
+            
+            # Проверить, видно ли сообщение (прочитать его обратно)
+            await asyncio.sleep(1)
+            messages = await client.get_messages(saved_messages, limit=5)
+            
+            message_found = any(m.id == sent_msg.id for m in messages if m.id)
+            if not message_found:
+                result["status"] = "shadow_ban"
+                result["details"]["shadow_ban"] = "Сообщения отправляются, но не видны"
+                result["can_send_messages"] = False
+            
+            # Удалить тестовое сообщение
+            try:
+                await client.delete_messages(saved_messages, [sent_msg.id])
+            except:
+                pass
+                
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "flood" in error_msg:
+                result["status"] = "flood_limit"
+                result["can_send_messages"] = False
+                # Попытаться извлечь время ожидания
+                if "wait" in error_msg:
+                    try:
+                        import re
+                        wait_match = re.search(r'wait (\d+)', error_msg)
+                        if wait_match:
+                            wait_seconds = int(wait_match.group(1))
+                            result["flood_wait_until"] = (datetime.now().timestamp() + wait_seconds)
+                    except:
+                        pass
+                result["details"]["flood_error"] = str(e)[:100]
+            elif "restricted" in error_msg or "banned" in error_msg:
+                result["status"] = "restricted"
+                result["can_send_messages"] = False
+                result["details"]["restriction"] = str(e)[:100]
+            else:
+                result["details"]["send_test_error"] = str(e)[:100]
+        
+        # Проверка 2: Flood limit - попытка получить диалоги
+        try:
+            dialogs = await asyncio.wait_for(
+                client.get_dialogs(limit=10),
+                timeout=10.0
+            )
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "flood" in error_msg:
+                if result["status"] == "ok":
+                    result["status"] = "flood_limit"
+                result["can_send_messages"] = False
+                result["can_create_groups"] = False
+                result["details"]["flood_dialogs"] = str(e)[:100]
+        
+        # Проверка 3: Ограничения на создание групп (проверка через API)
+        try:
+            from telethon.tl.functions.account import GetAccountTTLRequest
+            ttl = await asyncio.wait_for(
+                client(GetAccountTTLRequest()),
+                timeout=5.0
+            )
+        except Exception as e:
+            error_msg = str(e).lower()
+            if "flood" in error_msg:
+                if result["status"] == "ok":
+                    result["status"] = "flood_limit"
+                result["details"]["flood_api"] = str(e)[:100]
+        
+        # Проверка 4: Проверка ограничений через получение информации о себе
+        try:
+            full_user = await client.get_entity(me.id)
+            if hasattr(full_user, 'restricted') and full_user.restricted:
+                result["status"] = "restricted"
+                result["can_send_messages"] = False
+                result["can_create_groups"] = False
+                result["details"]["restricted"] = "Аккаунт ограничен"
+        except Exception as e:
+            result["details"]["user_info_error"] = str(e)[:100]
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "details": {"error": str(e)[:200]},
+            "can_send_messages": False,
+            "can_create_groups": False,
+            "flood_wait_until": None
+        }
+    finally:
+        # Остановить отслеживание активности перед отключением
+        if phone:
+            stop_activity_session(phone)
+        await safe_disconnect_client(client)
+
+
 class JobRequest(BaseModel):
     phone_number: str
     account_id: str
@@ -468,7 +779,15 @@ async def get_sessions():
                 session_file = json_file.parent / f"{json_file.stem}.session"
                 has_session_file = session_file.exists()
                 
-                sessions.append({
+                # Получить сохраненный статус проверки ограничений
+                restriction_status = data.get('restriction_status')
+                restriction_details = data.get('restriction_details', {})
+                restriction_checked_at = data.get('restriction_checked_at')
+                
+                # Получить текущее время активности (включая активную сессию если есть)
+                current_activity_time = get_current_activity_time(str(phone))
+                
+                session_info = {
                     'phone': str(phone),
                     'filename': json_file.name,
                     'path': str(relative_path),
@@ -479,8 +798,19 @@ async def get_sessions():
                     'account_id': str(account_id),
                     'first_name': data.get('first_name'),
                     'username': data.get('username'),
-                    'twoFA': data.get('twoFA') or data.get('2fa') or data.get('password') or None
-                })
+                    'twoFA': data.get('twoFA') or data.get('2fa') or data.get('password') or None,
+                    'status': 'Active' if (has_session_string or has_session_file) else 'No Session',
+                    'last_activity_at': data.get('last_activity_at'),  # Время последней активности
+                    'total_activity_seconds': current_activity_time  # Общее время активности в секундах (включая текущую сессию)
+                }
+                
+                # Добавить сохраненные статусы проверки если есть
+                if restriction_status:
+                    session_info['restriction_status'] = restriction_status
+                    session_info['restriction_details'] = restriction_details
+                    session_info['restriction_checked_at'] = restriction_checked_at
+                
+                sessions.append(session_info)
         except Exception:
             # Если ошибка чтения файла, пробуем по имени файла/папки
             try:
@@ -500,7 +830,8 @@ async def get_sessions():
                     'has_session_string': False,
                     'has_session_file': has_session_file,
                     'created_at': 'unknown',
-                    'account_id': phone
+                    'account_id': phone,
+                    'status': 'Active' if has_session_file else 'No Session'
                 })
             except:
                 continue
@@ -2023,6 +2354,211 @@ async def parse_code_from_telegram(request: ParseCodeRequest):
         raise HTTPException(status_code=500, detail=f"Ошибка парсинга: {error_detail}")
 
 
+@app.post("/api/v1/sessions/check-restrictions", response_class=JSONResponse)
+async def check_session_restrictions(request: dict):
+    """
+    Проверить ограничения Telegram аккаунта (shadow ban, flood limit).
+    
+    Request body:
+    {
+        "phone": "+1234567890"  # Номер телефона
+    }
+    """
+    try:
+        phone = request.get("phone") or request.get("phone_number")
+        if not phone:
+            raise HTTPException(status_code=400, detail="Не указан номер телефона")
+        
+        phone_clean = phone.replace('+', '').replace('-', '').replace(' ', '')
+        
+        # Найти сессию
+        session_file = None
+        session_data = None
+        json_file = None
+        
+        # Искать JSON файл
+        if SESSIONS_DIR.exists():
+            json_files = list(SESSIONS_DIR.rglob("*.json"))
+            for json_path in json_files:
+                try:
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        phone_in_data = data.get('phone_number') or data.get('phone')
+                        if phone_in_data:
+                            phone_in_data_clean = str(phone_in_data).replace('+', '').replace('-', '').replace(' ', '')
+                            if phone_in_data_clean == phone_clean:
+                                json_file = json_path
+                                session_data = data
+                                
+                                # Найти .session файл
+                                session_file_candidate = json_path.parent / f"{json_path.stem}.session"
+                                if session_file_candidate.exists():
+                                    session_file = session_file_candidate
+                                    break
+                except:
+                    continue
+        
+        if not session_file and not (session_data and session_data.get('session_string')):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Session не найден для {phone}"
+            )
+        
+        # Получить api_id и api_hash
+        app_id = session_data.get('app_id') or session_data.get('api_id') if session_data else None
+        app_hash = session_data.get('app_hash') or session_data.get('api_hash') if session_data else None
+        
+        if not app_id or not app_hash:
+            app_id = os.getenv('TELEGRAM_API_ID', '2040')
+            app_hash = os.getenv('TELEGRAM_API_HASH', 'b18441a1ff607e10a989891a5462e627')
+        
+        # Определить путь к сессии
+        if session_data and session_data.get('session_string'):
+            session_path = session_data['session_string']
+        else:
+            session_path = str(session_file)
+        
+        # Проверить ограничения
+        result = await check_account_restrictions(
+            session_path=session_path,
+            api_id=int(app_id),
+            api_hash=app_hash,
+            phone=phone_clean
+        )
+        
+        # Сохранить результат проверки в JSON файл сессии
+        if json_file and session_data:
+            try:
+                # Обновить данные сессии с результатом проверки
+                session_data['restriction_status'] = result.get('status', 'unknown')
+                session_data['restriction_details'] = {
+                    'can_send_messages': result.get('can_send_messages', False),
+                    'can_create_groups': result.get('can_create_groups', False),
+                    'flood_wait_until': result.get('flood_wait_until'),
+                    'details': result.get('details', {})
+                }
+                session_data['restriction_checked_at'] = datetime.now().isoformat()
+                
+                # Сохранить обновленные данные
+                with open(json_file, 'w', encoding='utf-8') as f:
+                    json.dump(session_data, f, indent=2, ensure_ascii=False)
+            except Exception as e:
+                print(f"Ошибка сохранения статуса проверки в {json_file}: {e}")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка проверки ограничений: {str(e)}")
+
+
+@app.post("/api/v1/sessions/check-all-restrictions", response_class=JSONResponse)
+async def check_all_sessions_restrictions():
+    """
+    Проверить ограничения для всех сессий.
+    Возвращает список результатов проверки.
+    """
+    try:
+        results = []
+        
+        if not SESSIONS_DIR.exists():
+            return {"status": "success", "results": [], "message": "Нет сессий для проверки"}
+        
+        # Найти все JSON файлы
+        json_files = list(SESSIONS_DIR.rglob("*.json"))
+        
+        app_id = int(os.getenv('TELEGRAM_API_ID', '2040'))
+        app_hash = os.getenv('TELEGRAM_API_HASH', 'b18441a1ff607e10a989891a5462e627')
+        
+        for json_path in json_files:
+            try:
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    
+                    phone = data.get('phone_number') or data.get('phone')
+                    if not phone:
+                        continue
+                    
+                    phone_clean = phone.replace('+', '').replace('-', '').replace(' ', '')
+                    
+                    # Получить api_id и api_hash из данных или использовать дефолтные
+                    file_app_id = data.get('app_id') or data.get('api_id') or app_id
+                    file_app_hash = data.get('app_hash') or data.get('api_hash') or app_hash
+                    
+                    # Определить путь к сессии
+                    if data.get('session_string'):
+                        session_path = data['session_string']
+                    else:
+                        session_file = json_path.parent / f"{json_path.stem}.session"
+                        if not session_file.exists():
+                            continue
+                        session_path = str(session_file)
+                    
+                    # Проверить ограничения
+                    check_result = await check_account_restrictions(
+                        session_path=session_path,
+                        api_id=int(file_app_id),
+                        api_hash=file_app_hash,
+                        phone=phone_clean
+                    )
+                    
+                    # Сохранить результат проверки в JSON файл
+                    try:
+                        data['restriction_status'] = check_result.get('status', 'unknown')
+                        data['restriction_details'] = {
+                            'can_send_messages': check_result.get('can_send_messages', False),
+                            'can_create_groups': check_result.get('can_create_groups', False),
+                            'flood_wait_until': check_result.get('flood_wait_until'),
+                            'details': check_result.get('details', {})
+                        }
+                        data['restriction_checked_at'] = datetime.now().isoformat()
+                        
+                        # Сохранить обновленные данные
+                        with open(json_path, 'w', encoding='utf-8') as f:
+                            json.dump(data, f, indent=2, ensure_ascii=False)
+                    except Exception as e:
+                        print(f"Ошибка сохранения статуса проверки в {json_path}: {e}")
+                    
+                    results.append({
+                        "phone": phone,
+                        "check_result": check_result
+                    })
+                    
+            except Exception as e:
+                results.append({
+                    "phone": str(json_path),
+                    "check_result": {
+                        "status": "error",
+                        "details": {"error": str(e)[:100]}
+                    }
+                })
+        
+        # Статистика
+        total = len(results)
+        ok_count = sum(1 for r in results if r["check_result"].get("status") == "ok")
+        shadow_ban_count = sum(1 for r in results if r["check_result"].get("status") == "shadow_ban")
+        flood_count = sum(1 for r in results if r["check_result"].get("status") == "flood_limit")
+        restricted_count = sum(1 for r in results if r["check_result"].get("status") == "restricted")
+        error_count = sum(1 for r in results if r["check_result"].get("status") == "error")
+        
+        return {
+            "status": "success",
+            "total": total,
+            "statistics": {
+                "ok": ok_count,
+                "shadow_ban": shadow_ban_count,
+                "flood_limit": flood_count,
+                "restricted": restricted_count,
+                "error": error_count
+            },
+            "results": results
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка массовой проверки: {str(e)}")
+
+
 # ========== Group Chat with AI (Groq FREE / OpenAI) ==========
 
 # AI Provider: "groq" (бесплатный) или "openai"
@@ -3117,7 +3653,77 @@ async def check_and_create_groups_for_new_sessions(request: dict = None):
                     
                     await asyncio.sleep(3)
                     
-                    # ШАГ 2: Импорт контактов
+                    # ШАГ 2: Участники пишут админу (создают двустороннюю связь)
+                    add_log(f"Участники пишут админу приветствие...", "info")
+                    import random
+                    admin_phone_formatted = "+" + admin_phone if not admin_phone.startswith("+") else admin_phone
+                    greetings = ["Привет! Готов к добавлению в группу.", "Здравствуй! Готов.", "Привет! Готов к добавлению в группу.", "Приветик! Готов."]
+                    
+                    for member in group["members"]:
+                        try:
+                            member_phone = member["phone"]
+                            member_session = SESSIONS_DIR / member_phone / f"{member_phone}.session"
+                            
+                            if not member_session.exists():
+                                add_log(f"Session не найден для участника: {member_phone}", "warning")
+                                continue
+                            
+                            member_app_id = member.get("app_id") or int(os.getenv('TELEGRAM_API_ID', 2040))
+                            member_app_hash = member.get("app_hash") or os.getenv('TELEGRAM_API_HASH', "b18441a1ff607e10a989891a5462e627")
+                            
+                            try:
+                                # Создать клиент для участника
+                                member_client = await create_telegram_client(
+                                    session_path=str(member_session),
+                                    api_id=member_app_id,
+                                    api_hash=member_app_hash,
+                                    phone=member_phone,
+                                    use_proxy=True,
+                                    use_device_info=True
+                                )
+                                await member_client.connect()
+                                
+                                if not await member_client.is_user_authorized():
+                                    add_log(f"Участник не авторизован: {member_phone}", "warning")
+                                    await member_client.disconnect()
+                                    continue
+                                
+                                # Импортировать контакт админа
+                                contact = InputPhoneContact(
+                                    client_id=random.randint(1, 999999),
+                                    phone=admin_phone_formatted,
+                                    first_name="Admin",
+                                    last_name=""
+                                )
+                                await member_client(ImportContactsRequest([contact]))
+                                
+                                # Получить entity админа и написать ему
+                                try:
+                                    admin_entity = await member_client.get_entity(admin_phone_formatted)
+                                    greeting = random.choice(greetings)
+                                    
+                                    # Эффект печати для реалистичности
+                                    typing_time = random.uniform(1, 2.5)
+                                    async with member_client.action(admin_entity, 'typing'):
+                                        await asyncio.sleep(typing_time)
+                                    
+                                    await member_client.send_message(admin_entity, greeting)
+                                    add_log(f"✅ {member_phone} написал админу", "success")
+                                    await asyncio.sleep(2)
+                                except Exception as e:
+                                    add_log(f"Не удалось написать админу от {member_phone}: {str(e)[:40]}", "warning")
+                                
+                                await member_client.disconnect()
+                                
+                            except Exception as e:
+                                add_log(f"Ошибка с участником {member_phone}: {str(e)[:40]}", "warning")
+                                
+                        except Exception as e:
+                            add_log(f"Ошибка для участника {member.get('phone', '?')}: {str(e)[:30]}", "warning")
+                    
+                    await asyncio.sleep(3)
+                    
+                    # ШАГ 3: Импорт контактов админом
                     contacts_to_add = []
                     for i, member in enumerate(group["members"]):
                         member_phone = member["phone"]
@@ -3136,7 +3742,7 @@ async def check_and_create_groups_for_new_sessions(request: dict = None):
                         except Exception as e:
                             add_log(f"Ошибка импорта контактов: {str(e)[:40]}", "warning")
                     
-                    # ШАГ 3: Получить entities и создать группу
+                    # ШАГ 4: Получить entities и создать группу
                     add_log(f"Ищу {len(group['members'])} участников для создания группы...", "info")
                     member_entities = []
                     for member in group["members"]:
@@ -4569,45 +5175,64 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                         await client.connect()
                         
                         if await client.is_user_authorized():
+                            # Начать отслеживание активности
+                            start_activity_session(phone)
                             # Правильная обработка ID группы (может быть отрицательным)
                             try:
                                 chat_id = int(telegram_group_id)
                                 # Для обычных групп ID отрицательный, для супергрупп - положительный
-                                # Попробуем получить entity разными способами
+                                # Попробуем получить entity разными способами с повторными попытками
                                 group_entity = None
+                                max_retries = 3
                                 
-                                try:
-                                    # Сначала попробуем напрямую по ID
-                                    group_entity = await client.get_entity(chat_id)
-                                except Exception as e1:
+                                for retry in range(max_retries):
                                     try:
-                                        # Если не получилось, попробуем через диалоги
-                                        dialogs = await client.get_dialogs(limit=100)
-                                        for d in dialogs:
-                                            if d.id == chat_id:
-                                                group_entity = d.entity
-                                                add_log(f"[{group['title']}] Группа найдена через диалоги", "info")
+                                        # Сначала попробуем напрямую по ID
+                                        group_entity = await asyncio.wait_for(
+                                            client.get_entity(chat_id),
+                                            timeout=10.0
+                                        )
+                                        if group_entity:
+                                            break
+                                    except (asyncio.TimeoutError, Exception) as e1:
+                                        if retry < max_retries - 1:
+                                            await asyncio.sleep(1)  # Пауза перед повтором
+                                            continue
+                                        
+                                        # Если не получилось напрямую, попробуем через диалоги
+                                        try:
+                                            dialogs = await asyncio.wait_for(
+                                                client.get_dialogs(limit=200),
+                                                timeout=15.0
+                                            )
+                                            for d in dialogs:
+                                                if d.id == chat_id:
+                                                    group_entity = d.entity
+                                                    add_log(f"[{group['title']}] Группа найдена через диалоги (попытка {retry+1})", "info")
+                                                    break
+                                            
+                                            if group_entity:
                                                 break
-                                    except Exception as e2:
-                                        add_log(f"[{group['title']}] Ошибка поиска в диалогах: {str(e2)[:30]}", "warning")
+                                        except Exception as e2:
+                                            if retry == max_retries - 1:
+                                                add_log(f"[{group['title']}] Ошибка поиска в диалогах: {str(e2)[:30]}", "warning")
                                 
                                 if not group_entity:
-                                    add_log(f"[{group['title']}] Группа не найдена (ID: {chat_id}) - отключаю авто-чат", "error")
-                                    # Отключить авто-чат для этой группы
-                                    auto_chat_active[group_id] = False
+                                    add_log(f"[{group['title']}] Группа не найдена (ID: {chat_id}) - пропускаю эту итерацию", "warning")
+                                    # НЕ отключаем авто-чат, просто пропускаем эту итерацию
+                                    # Группа может появиться в следующем раунде
                                     continue
                                 
                                 # Проверить, что это группа/супергруппа
                                 from telethon.tl.types import Chat, Channel, User
                                 if isinstance(group_entity, User):
                                     add_log(f"[{group['title']}] Это не группа, а пользователь - пропуск", "warning")
-                                    auto_chat_active[group_id] = False
+                                    # НЕ отключаем авто-чат, просто пропускаем
                                     continue
                                     
                             except Exception as e:
-                                add_log(f"[{group['title']}] Peer недействителен: {str(e)[:40]} - отключаю авто-чат", "error")
-                                # Отключить авто-чат для этой группы
-                                auto_chat_active[group_id] = False
+                                add_log(f"[{group['title']}] Peer недействителен: {str(e)[:40]} - пропускаю итерацию", "warning")
+                                # НЕ отключаем авто-чат, просто пропускаем эту итерацию
                                 continue
                             
                             # Получить сообщения для проверки наличия медиа
@@ -5018,12 +5643,11 @@ async def run_auto_chat_loop(groups, thread_id=1, total_threads=1):
                     except Exception as e:
                         add_log(f"TG ошибка: {str(e)[:40]}", "error")
                     finally:
-                        # ВАЖНО: Всегда закрываем клиент!
-                        if client:
-                            try:
-                                await client.disconnect()
-                            except:
-                                pass
+                        # Остановить отслеживание активности перед отключением
+                        if phone:
+                            stop_activity_session(phone)
+                        # ВАЖНО: Всегда закрываем клиент корректно!
+                        await safe_disconnect_client(client)
                     
                     # === ПАУЗА МЕЖДУ СООБЩЕНИЯМИ (живой чат!) ===
                     if len(message) < 10:

@@ -8,6 +8,7 @@
         <h1 class="page-title">Sessions</h1>
         <div>
             <button class="btn btn-primary" onclick="showGetCodeModal()">📱 Получить код</button>
+            <button class="btn btn-success" onclick="checkAllRestrictions()">🔍 Проверить все статусы</button>
             <button class="btn btn-secondary" onclick="refreshSessions()">Refresh</button>
         </div>
     </div>
@@ -20,6 +21,20 @@
         <div class="card-body">
             <div id="sessions-list" class="table-container">
                 <p class="loading">Loading sessions...</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модалка для результатов проверки статусов -->
+    <div id="restrictions-modal" class="modal">
+        <div class="modal-content" style="max-width: 90%; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2>🔍 Результаты проверки статусов</h2>
+                <button class="modal-close" onclick="closeRestrictionsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="restrictions-status"></div>
+                <div id="restrictions-results"></div>
             </div>
         </div>
     </div>
@@ -131,18 +146,196 @@
         }
     }
     
+    let sessionsData = []; // Хранить данные сессий с проверками
+    
     async function loadSessions() {
         try {
             const res = await fetchWithTimeout('/api/v1/sessions', {}, 8000);
             const data = await res.json();
             
             document.getElementById('sessions-total').textContent = data.total;
-            displaySessions(data.sessions);
+            
+            // Подготовить данные сессий с сохраненными статусами
+            sessionsData = data.sessions.map(s => ({
+                ...s,
+                restriction_status: s.restriction_status || null,
+                restriction_details: s.restriction_details || null,
+                restriction_checked_at: s.restriction_checked_at || null,
+                total_activity_seconds: parseFloat(s.total_activity_seconds || 0)
+            }));
+            
+            // Сначала показать сохраненные статусы
+            displaySessions(sessionsData);
+            
+            // Затем обновить статусы для тех, у кого их нет или они устарели (старше 24 часов)
+            await updateStaleStatuses(sessionsData);
         } catch (error) {
             console.error('Error loading sessions:', error);
             document.getElementById('sessions-list').innerHTML = 
                 '<p class="error">Error loading sessions</p>';
         }
+    }
+    
+    async function updateStaleStatuses(sessions) {
+        const now = new Date();
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        
+        // Найти сессии, которые нужно обновить
+        const sessionsToUpdate = sessions.filter(s => {
+            // Обновить если нет статуса или он устарел
+            if (!s.restriction_status || !s.restriction_checked_at) {
+                return true;
+            }
+            const checkedAt = new Date(s.restriction_checked_at);
+            return checkedAt < oneDayAgo;
+        });
+        
+        if (sessionsToUpdate.length === 0) {
+            return; // Все статусы актуальны
+        }
+        
+        // Обновить статусы для найденных сессий
+        const statusPromises = sessionsToUpdate.map(async (s) => {
+            try {
+                const res = await fetchWithTimeout('/api/v1/sessions/check-restrictions', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ phone: s.phone })
+                }, 15000);
+                
+                const data = await res.json();
+                return { ...s, restriction_status: data.status || 'unknown', restriction_details: data };
+            } catch (error) {
+                return { ...s, restriction_status: 'error', restriction_details: { 
+                    error: error.message,
+                    can_send_messages: false,
+                    can_create_groups: false
+                }};
+            }
+        });
+        
+        const updatedSessions = await Promise.all(statusPromises);
+        
+        // Обновить sessionsData с новыми статусами
+        updatedSessions.forEach(updated => {
+            const index = sessionsData.findIndex(s => s.phone === updated.phone);
+            if (index !== -1) {
+                sessionsData[index] = updated;
+            }
+        });
+        
+        // Обновить отображение
+        displaySessions(sessionsData);
+    }
+    
+    function getTotalActivityTime(totalSeconds) {
+        if (!totalSeconds || totalSeconds === 0) {
+            return '<span style="color: #999;">0ч 0м 0с</span>';
+        }
+        
+        try {
+            const total = parseFloat(totalSeconds);
+            const hours = Math.floor(total / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const seconds = Math.floor(total % 60);
+            
+            // Всегда показывать все единицы времени
+            let timeStr = '';
+            if (hours > 0) {
+                timeStr += `${hours}ч `;
+            }
+            if (minutes > 0 || hours > 0) {
+                timeStr += `${minutes}м `;
+            }
+            timeStr += `${seconds}с`;
+            
+            // Цвет в зависимости от времени
+            let color = '#999';
+            if (hours > 0) {
+                color = '#28a745';
+            } else if (minutes > 0) {
+                color = '#ffc107';
+            }
+            
+            return `<span style="color: ${color}; font-weight: ${hours > 0 ? 'bold' : 'normal'};">${timeStr.trim()}</span>`;
+        } catch (e) {
+            return '<span style="color: #999;">Ошибка</span>';
+        }
+    }
+    
+    function updateActivityTimers() {
+        // Обновить таймеры - показать текущее время из sessionsData
+        const activityCells = document.querySelectorAll('td[data-activity-seconds]');
+        activityCells.forEach(cell => {
+            const phone = cell.getAttribute('data-session-phone');
+            if (phone) {
+                // Получить актуальное время из sessionsData
+                const session = sessionsData.find(s => s.phone === phone);
+                if (session) {
+                    let totalSeconds = parseFloat(session.total_activity_seconds || 0);
+                    // Если аккаунт сейчас активен, добавить время текущей сессии
+                    // (это будет обновляться при следующей загрузке страницы)
+                    cell.innerHTML = getTotalActivityTime(totalSeconds);
+                }
+            }
+        });
+    }
+    
+    let activityTimerInterval = null;
+    
+    function startActivityTimers() {
+        // Остановить предыдущий интервал если есть
+        if (activityTimerInterval) {
+            clearInterval(activityTimerInterval);
+        }
+        
+        // Обновлять таймеры каждую секунду
+        activityTimerInterval = setInterval(updateActivityTimers, 1000);
+    }
+    
+    function getStatusBadge(status, restrictionStatus) {
+        // Если статус еще проверяется
+        if (!restrictionStatus || restrictionStatus === 'checking') {
+            return '<span class="badge badge-secondary">Проверка...</span>';
+        }
+        
+        // Если статус неизвестен
+        if (restrictionStatus === 'unknown') {
+            return '<span class="badge badge-secondary" style="cursor: pointer;" onclick="showStatusDetails(this)" title="Нажмите для деталей">❓ Unknown</span>';
+        }
+        
+        let badgeClass = 'badge-secondary';
+        let badgeText = 'Unknown';
+        let badgeIcon = '❓';
+        
+        if (restrictionStatus === 'ok') {
+            badgeClass = 'badge-success';
+            badgeText = 'OK';
+            badgeIcon = '✅';
+        } else if (restrictionStatus === 'shadow_ban') {
+            badgeClass = 'badge-warning';
+            badgeText = 'Shadow Ban';
+            badgeIcon = '🌑';
+        } else if (restrictionStatus === 'flood_limit') {
+            badgeClass = 'badge-danger';
+            badgeText = 'Flood Limit';
+            badgeIcon = '❄️';
+        } else if (restrictionStatus === 'restricted') {
+            badgeClass = 'badge-secondary';
+            badgeText = 'Restricted';
+            badgeIcon = '🚫';
+        } else if (restrictionStatus === 'error') {
+            badgeClass = 'badge-secondary';
+            badgeText = 'Error';
+            badgeIcon = '⚠️';
+        } else if (restrictionStatus === 'no_session') {
+            badgeClass = 'badge-warning';
+            badgeText = 'No Session';
+            badgeIcon = '📱';
+            return `<span class="badge ${badgeClass}">${badgeIcon} ${badgeText}</span>`;
+        }
+        
+        return `<span class="badge ${badgeClass}" style="cursor: pointer;" onclick="showStatusDetails(this)" title="Нажмите для деталей">${badgeIcon} ${badgeText}</span>`;
     }
     
     function displaySessions(sessions) {
@@ -160,32 +353,115 @@
                         <th>Phone</th>
                         <th>Filename</th>
                         <th>Status</th>
+                        <th>Активность</th>
                         <th>Created</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${sessions.map(s => `
+                    ${sessions.map((s, index) => `
                         <tr>
                             <td>${s.phone}</td>
                             <td><code>${s.filename}</code></td>
-                            <td>
-                                ${s.status === 'Active' 
-                                    ? '<span class="badge badge-success">Active</span>' 
-                                    : '<span class="badge badge-warning">No Session</span>'}
+                            <td data-session-index="${index}">
+                                ${getStatusBadge(s.restriction_status || s.status, s.restriction_status)}
+                            </td>
+                            <td data-activity-seconds="${s.total_activity_seconds || 0}" data-session-phone="${s.phone}">
+                                ${getTotalActivityTime(s.total_activity_seconds || 0)}
                             </td>
                             <td>${s.created_at || 'Unknown'}</td>
                             <td>
                                 <button class="btn btn-sm btn-primary" onclick="parseCodeFromSession('${s.phone}')" title="Парсить код из Telegram">🔍 Парсить код</button>
                                 ${s.twoFA ? `<button class="btn btn-sm btn-2fa" data-2fa="${String(s.twoFA).replace(/"/g, '&quot;')}" onclick="copy2FA(this)" title="Копировать 2FA пароль">🔐 2FA</button>` : ''}
-                                <button class="btn btn-sm btn-secondary" onclick="getCodeForPhone('${s.phone}')" title="Получить новый код">📱 Новый</button>
-                                <button class="btn btn-sm" onclick="testSession('${s.phone}')">Test</button>
                             </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         `;
+        
+        // Запустить обновление таймеров активности
+        startActivityTimers();
+    }
+    
+    function showStatusDetails(element) {
+        const row = element.closest('tr');
+        const index = parseInt(row.querySelector('td[data-session-index]').getAttribute('data-session-index'));
+        const session = sessionsData[index];
+        
+        if (!session) {
+            alert('Детали статуса недоступны');
+            return;
+        }
+        
+        const details = session.restriction_details || {};
+        const status = session.restriction_status || 'unknown';
+        
+        // Если детали недоступны, но есть статус
+        if (!details || Object.keys(details).length === 0) {
+            let html = `
+                <div style="padding: 20px;">
+                    <h3>📊 Статус аккаунта: ${session.phone}</h3>
+                    <div style="margin-top: 15px;">
+                        <div class="badge badge-secondary">Статус: ${status}</div>
+                        <p style="margin-top: 15px; color: #666;">Детальная информация недоступна. Попробуйте проверить статус через кнопку "Проверить все статусы".</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('restrictions-status').innerHTML = html;
+            document.getElementById('restrictions-results').innerHTML = '';
+            showRestrictionsModal();
+            return;
+        }
+        let html = `
+            <div style="padding: 20px;">
+                <h3>📊 Статус аккаунта: ${session.phone}</h3>
+                <div style="margin-top: 15px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                        <div style="padding: 15px; background: ${details.can_send_messages ? '#d4edda' : '#f8d7da'}; border-radius: 5px; border: 1px solid ${details.can_send_messages ? '#c3e6cb' : '#f5c6cb'};">
+                            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                                ${details.can_send_messages ? '✅' : '❌'} Отправка сообщений
+                            </div>
+                            <div style="color: #666;">
+                                ${details.can_send_messages ? 'Можно отправлять сообщения' : 'Нельзя отправлять сообщения'}
+                            </div>
+                        </div>
+                        <div style="padding: 15px; background: ${details.can_create_groups ? '#d4edda' : '#f8d7da'}; border-radius: 5px; border: 1px solid ${details.can_create_groups ? '#c3e6cb' : '#f5c6cb'};">
+                            <div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">
+                                ${details.can_create_groups ? '✅' : '❌'} Создание групп
+                            </div>
+                            <div style="color: #666;">
+                                ${details.can_create_groups ? 'Можно создавать группы' : 'Нельзя создавать группы'}
+                            </div>
+                        </div>
+                    </div>
+        `;
+        
+        if (details.details) {
+            html += '<div style="margin-top: 15px;"><strong>Детали:</strong><ul style="text-align: left; margin-top: 10px;">';
+            for (const [key, value] of Object.entries(details.details)) {
+                if (value) {
+                    html += `<li><strong>${key}:</strong> ${value}</li>`;
+                }
+            }
+            html += '</ul></div>';
+        }
+        
+        if (details.flood_wait_until) {
+            const waitUntil = new Date(details.flood_wait_until * 1000);
+            const now = new Date();
+            const waitSeconds = Math.max(0, Math.floor((waitUntil - now) / 1000));
+            html += `<div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+                <strong>⏱️ Flood wait:</strong> Ожидание до ${waitUntil.toLocaleString()} (${waitSeconds} сек.)
+            </div>`;
+        }
+        
+        html += '</div>';
+        
+        // Показать в модальном окне
+        document.getElementById('restrictions-status').innerHTML = html;
+        document.getElementById('restrictions-results').innerHTML = '';
+        showRestrictionsModal();
     }
     
     function refreshSessions() {
@@ -193,10 +469,133 @@
         loadSessions();
     }
     
-    function testSession(phone) {
-        alert(`Testing session for ${phone}`);
-        // Здесь можно добавить логику тестирования
+    
+    // ===== Проверка ограничений =====
+    
+    function showRestrictionsModal() {
+        document.getElementById('restrictions-modal').style.display = 'block';
     }
+    
+    function closeRestrictionsModal() {
+        document.getElementById('restrictions-modal').style.display = 'none';
+    }
+    
+    async function checkAllRestrictions() {
+        showRestrictionsModal();
+        document.getElementById('restrictions-status').innerHTML = 
+            '<div class="loading">⏳ Проверка всех аккаунтов... Это может занять некоторое время.</div>';
+        document.getElementById('restrictions-results').innerHTML = '';
+        
+        try {
+            const res = await fetchWithTimeout('/api/v1/sessions/check-all-restrictions', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            }, 300000); // 5 минут таймаут для массовой проверки
+            
+            const data = await res.json();
+            
+            if (res.ok && data.status === 'success') {
+                // Показать статистику
+                const stats = data.statistics || {};
+                let statsHtml = `
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+                        <h3>📊 Статистика</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                            <div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">
+                                <div style="font-size: 24px; font-weight: bold; color: #28a745;">${stats.ok || 0}</div>
+                                <div style="color: #666;">✅ OK</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">
+                                <div style="font-size: 24px; font-weight: bold; color: #ffc107;">${stats.shadow_ban || 0}</div>
+                                <div style="color: #666;">🌑 Shadow Ban</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">
+                                <div style="font-size: 24px; font-weight: bold; color: #dc3545;">${stats.flood_limit || 0}</div>
+                                <div style="color: #666;">❄️ Flood Limit</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6c757d;">${stats.restricted || 0}</div>
+                                <div style="color: #666;">🚫 Restricted</div>
+                            </div>
+                            <div style="text-align: center; padding: 10px; background: white; border-radius: 5px;">
+                                <div style="font-size: 24px; font-weight: bold; color: #6c757d;">${stats.error || 0}</div>
+                                <div style="color: #666;">⚠️ Ошибки</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px; text-align: center; color: #666;">
+                            Всего проверено: <strong>${data.total || 0}</strong>
+                        </div>
+                    </div>
+                `;
+                
+                // Показать результаты
+                let resultsHtml = '<h3>📋 Детальные результаты</h3><div style="max-height: 500px; overflow-y: auto;">';
+                resultsHtml += '<table class="data-table" style="width: 100%;">';
+                resultsHtml += '<thead><tr><th>Телефон</th><th>Статус</th><th>Детали</th><th>Может отправлять</th><th>Может создавать группы</th></tr></thead><tbody>';
+                
+                data.results.forEach(r => {
+                    const check = r.check_result || {};
+                    const status = check.status || 'unknown';
+                    let statusBadge = '';
+                    let statusColor = '#6c757d';
+                    
+                    if (status === 'ok') {
+                        statusBadge = '<span class="badge badge-success">✅ OK</span>';
+                        statusColor = '#28a745';
+                    } else if (status === 'shadow_ban') {
+                        statusBadge = '<span class="badge badge-warning">🌑 Shadow Ban</span>';
+                        statusColor = '#ffc107';
+                    } else if (status === 'flood_limit') {
+                        statusBadge = '<span class="badge badge-danger">❄️ Flood Limit</span>';
+                        statusColor = '#dc3545';
+                    } else if (status === 'restricted') {
+                        statusBadge = '<span class="badge badge-secondary">🚫 Restricted</span>';
+                        statusColor = '#6c757d';
+                    } else {
+                        statusBadge = '<span class="badge badge-secondary">⚠️ Error</span>';
+                        statusColor = '#6c757d';
+                    }
+                    
+                    const details = check.details || {};
+                    let detailsText = '';
+                    if (details.shadow_ban) detailsText += details.shadow_ban + '<br>';
+                    if (details.flood_error) detailsText += 'Flood: ' + details.flood_error + '<br>';
+                    if (details.restriction) detailsText += 'Restriction: ' + details.restriction + '<br>';
+                    if (details.error) detailsText += 'Error: ' + details.error + '<br>';
+                    if (!detailsText) detailsText = '-';
+                    
+                    resultsHtml += `
+                        <tr>
+                            <td><strong>${r.phone || 'Unknown'}</strong></td>
+                            <td>${statusBadge}</td>
+                            <td style="font-size: 12px; color: #666;">${detailsText}</td>
+                            <td>${check.can_send_messages ? '✅' : '❌'}</td>
+                            <td>${check.can_create_groups ? '✅' : '❌'}</td>
+                        </tr>
+                    `;
+                });
+                
+                resultsHtml += '</tbody></table></div>';
+                
+                document.getElementById('restrictions-status').innerHTML = statsHtml;
+                document.getElementById('restrictions-results').innerHTML = resultsHtml;
+            } else {
+                document.getElementById('restrictions-status').innerHTML = 
+                    '<div class="error">Ошибка: ' + (data.detail || 'Неизвестная ошибка') + '</div>';
+            }
+        } catch (error) {
+            document.getElementById('restrictions-status').innerHTML = 
+                '<div class="error">Ошибка: ' + error.message + '</div>';
+        }
+    }
+    
+    // Закрыть модалку при клике вне её
+    window.addEventListener('click', function(event) {
+        const restrictionsModal = document.getElementById('restrictions-modal');
+        if (event.target == restrictionsModal) {
+            closeRestrictionsModal();
+        }
+    });
     
     let currentGetCodeRequest = null;
     
@@ -625,6 +1024,9 @@
     window.addEventListener('beforeunload', function() {
         if (autoCodeCheckInterval) {
             clearInterval(autoCodeCheckInterval);
+        }
+        if (activityTimerInterval) {
+            clearInterval(activityTimerInterval);
         }
     });
     
