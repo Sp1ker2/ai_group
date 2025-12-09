@@ -1,99 +1,167 @@
 {
   "groups": [
     {
-      "id": "group_20251208_200121_1",
-      "title": "Rihanna",
+      "id": "group_20251209_101337_1",
+      "title": "Grand Theft Auto V",
       "admin": {
-        "phone": "573025569650",
-        "first_name": "Victoria",
-        "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569650\\573025569650.session",
-        "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569650\\573025569650.json",
+        "phone": "573025289025",
+        "first_name": "Christopher",
+        "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289025\\573025289025.session",
+        "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289025\\573025289025.json",
         "app_id": 2040,
         "app_hash": "b18441a1ff607e10a989891a5462e627"
       },
       "members": [
         {
-          "phone": "573025571635",
-          "first_name": "Sheryl",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025571635\\573025571635.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025571635\\573025571635.json",
+          "phone": "573025288918",
+          "first_name": "Cassandra",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288918\\573025288918.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288918\\573025288918.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         },
         {
-          "phone": "573028133206",
-          "first_name": "Diane",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028133206\\573028133206.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028133206\\573028133206.json",
+          "phone": "573025290034",
+          "first_name": "Regina",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290034\\573025290034.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290034\\573025290034.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         },
         {
-          "phone": "573028136604",
-          "first_name": "Barbara",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028136604\\573028136604.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028136604\\573028136604.json",
+          "phone": "573025288931",
+          "first_name": "Heather",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288931\\573025288931.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288931\\573025288931.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         },
         {
-          "phone": "573025569631",
-          "first_name": "Joseph",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569631\\573025569631.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569631\\573025569631.json",
+          "phone": "573025289830",
+          "first_name": "James",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289830\\573025289830.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289830\\573025289830.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         },
         {
-          "phone": "573025569630",
-          "first_name": "Haley",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569630\\573025569630.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569630\\573025569630.json",
+          "phone": "573025290081",
+          "first_name": "Matthew",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290081\\573025290081.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290081\\573025290081.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         },
         {
-          "phone": "573028133200",
-          "first_name": "Victor",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028133200\\573028133200.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573028133200\\573028133200.json",
-          "app_id": 2040,
-          "app_hash": "b18441a1ff607e10a989891a5462e627"
-        },
-        {
-          "phone": "573025569640",
-          "first_name": "Maria",
-          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569640\\573025569640.session",
-          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025569640\\573025569640.json",
+          "phone": "573025288905",
+          "first_name": "Ariel",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288905\\573025288905.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025288905\\573025288905.json",
           "app_id": 2040,
           "app_hash": "b18441a1ff607e10a989891a5462e627"
         }
       ],
       "all_phones": [
-        "573025569650",
-        "573025571635",
-        "573028133206",
-        "573028136604",
-        "573025569631",
-        "573025569630",
-        "573028133200",
-        "573025569640"
+        "573025289025",
+        "573025288918",
+        "573025290034",
+        "573025288931",
+        "573025289830",
+        "573025290081",
+        "573025288905"
       ],
-      "member_count": 8,
-      "created_at": "2025-12-08T20:01:21.923134",
+      "member_count": 7,
+      "created_at": "2025-12-09T10:13:37.993398",
       "chat_active": false,
       "status": "created",
       "assigned_topic": {
-        "id": "rihanna",
-        "name": "Rihanna",
-        "category": "music",
+        "id": "gta5",
+        "name": "Grand Theft Auto V",
+        "category": "games",
         "prompts": [
-          "Слушаете Rihanna?",
-          "Umbrella?",
-          "Ждёте новый альбом?"
+          "Играете в GTA 5?",
+          "Онлайн или сюжетка?",
+          "Ждёте GTA 6?"
         ]
       },
-      "telegram_group_id": -5092504484
+      "telegram_group_id": -4874465351
+    },
+    {
+      "id": "group_20251209_101337_2",
+      "title": "Warframe",
+      "admin": {
+        "phone": "573025289370",
+        "first_name": "Robin",
+        "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289370\\573025289370.session",
+        "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289370\\573025289370.json",
+        "app_id": 2040,
+        "app_hash": "b18441a1ff607e10a989891a5462e627"
+      },
+      "members": [
+        {
+          "phone": "573025289882",
+          "first_name": "Eric",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289882\\573025289882.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289882\\573025289882.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        },
+        {
+          "phone": "573025289046",
+          "first_name": "Jacqueline",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289046\\573025289046.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289046\\573025289046.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        },
+        {
+          "phone": "573025290133",
+          "first_name": "Ana",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290133\\573025290133.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290133\\573025290133.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        },
+        {
+          "phone": "573025290472",
+          "first_name": "Marissa",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290472\\573025290472.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025290472\\573025290472.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        },
+        {
+          "phone": "573025289682",
+          "first_name": "Jacob",
+          "session_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289682\\573025289682.session",
+          "json_file": "C:\\Users\\User\\Desktop\\project\\bip\\local-storage\\sessions\\573025289682\\573025289682.json",
+          "app_id": 2040,
+          "app_hash": "b18441a1ff607e10a989891a5462e627"
+        }
+      ],
+      "all_phones": [
+        "573025289370",
+        "573025289882",
+        "573025289046",
+        "573025290133",
+        "573025290472",
+        "573025289682"
+      ],
+      "member_count": 6,
+      "created_at": "2025-12-09T10:13:37.993398",
+      "chat_active": false,
+      "status": "created",
+      "assigned_topic": {
+        "id": "warframe",
+        "name": "Warframe",
+        "category": "games",
+        "prompts": [
+          "Играете в Warframe?",
+          "Какой фрейм мейн?",
+          "Сколько часов?"
+        ]
+      },
+      "telegram_group_id": -5070465189
     }
   ],
   "schedule": {
